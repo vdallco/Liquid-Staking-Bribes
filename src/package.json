@@ -1,0 +1,13 @@
+{
+  "dependencies": {
+    "@blockswaplab/lsd-wizard": "^3.3.1",
+    "@blockswaplab/stakehouse-sdk": "^5.0.1",
+    "bcrypto": "^5.4.0",
+    "browser-resolve": "^2.0.0",
+    "ethers": "^6.1.0"
+  },
+  "devDependencies": {
+    "bcrypto": "5.4.0",
+    "esmify": "^2.1.1"
+  }
+}

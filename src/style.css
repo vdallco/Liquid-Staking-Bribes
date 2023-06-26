@@ -1,0 +1,16 @@
+.dropdown-trigger{
+	color:yellow;	
+}
+
+.indicator{
+	background-color:#b2f6e4 !important ;
+}
+
+.tabs .tab a.active {
+  background-color: #333333 !important;
+}
+
+.montserrat-font {
+    font-family: 'Montserrat', sans-serif;
+	-webkit-font-smoothing: antialiased;
+}

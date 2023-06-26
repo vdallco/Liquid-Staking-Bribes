@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Stakehouse LSD Bribes</title>
+        <!-- Compiled and minified Materialize CSS -->
+    <link rel="stylesheet" href="https://app.magnuscapital.com/LSDBribes/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+	<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+	<script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js" type="application/javascript"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/decimal.js/9.0.0/decimal.min.js" type="application/javascript"></script>
+	
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/dark.min.css">
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
+	
+    <!-- Compiled and minified Materialize JavaScript -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+	
+	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap">
+
+	<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script></script>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  </head>
+  <body class="montserrat-font" style="background-color: rgba(18,18,18,1);">
+	<div class="container white-text" style="margin-top:25px;">
+	
+	<div class="row" style="display:flex;justify-content: space-between;margin-bottom:0px;">
+		<p class="col s6" id="accountDisplay" style="visibility:hidden;overflow-wrap:break-word;"><span id="walletAddress"></span></p>
+		
+		<div class="input-field col s3">
+			<select id="networkDropdownId">
+			  <option class="white-text" value="" disabled>Network</option>
+			  <option class="white-text" value="1" selected>Mainnet</option>
+			  <option class="white-text" value="5">Goerli</option>
+			</select>
+			<label class="green-text lighten-5">Network</label>
+		</div>
+		<a id="connectWallet" class="enableEthereumButton waves-effect waves-light btn btn-large col s3" style="border-radius:10px;">
+			<i class="material-icons left hide-on-small-only">wallet</i>
+			<span class="">Connect</span>
+		</a>
+	</div>
+	
+	
+	<div class="row">
+     
+      <div id="depositTab" class="col s12">
+		<h3 style="margin-top:0px;"><b>Stakehouse LSD Bribes</b></h2>
+		
+		<div class="alert card white-text text-darken-2" style="border-radius:10px;background-color:rgba(28,28,30,1);border-color:rgba(242, 215, 64, 0.4);border-style:solid;border-width:1px;">
+			<div class="card-content" style="padding-bottom: 0px;padding-top: 10px;">
+					<div class="row">
+						<i class="material-icons small col s1" style="margin-right:4px;position: relative;top:15px;">help</i>
+					    <h5 class="col s8">What are LSD Bribes?</h5>
+					</div>
+					<ul class="collection" style="border:none;">
+					<li class="collection-item white-text text-darken-2" style="border-bottom:none;background-color:rgba(28,28,30,1);">
+						<i class="material-icons xs col s1 hide-on-small-and-down" style="margin-right:4px;position: relative;top:5px;padding-top:0px;padding-bottom:0px">currency_exchange</i>
+						<b>Stakehouse LSD Validators</b> deposit ERC-20 tokens to <b>incentivize stakers to deposit ETH directly to their validator via <a href="https://fren.joinstakehouse.com/" style="color:#00ED76;">Fren Delegation</a></b>
+					</li>
+					<li class="collection-item white-text text-darken-2" style="border-bottom:none;padding-top:0px;padding-bottom:0px;background-color:rgba(28,28,30,1);">
+						<i class="material-icons xs col s1 hide-on-small-and-down" style="margin-right:4px;position: relative;top:5px;">redeem</i>
+						<b>Stakers</b> who use <b>Stakehouse <a href="https://fren.joinstakehouse.com/" style="color:#00ED76;">Fren Delegation</a></b> to deposit ETH directly to incentivized validators <b>earn ERC-20 token rewards.</b>
+					</li>
+					<li class="collection-item white-text text-darken-2" style="border-bottom:none;background-color:rgba(28,28,30,1);">
+						<i class="material-icons xs col s1 hide-on-small-and-down" style="margin-right:4px;position: relative;top:5px;padding-top:0px;padding-bottom:0px">hub</i>
+						<b>Stakehouse LSD Network owners</b> deposit ERC-20 tokens to <b>incentivize Node Runners to join their network</b>
+					</li>
+					<li class="collection-item white-text text-darken-2" style="border-bottom:none;padding-top:0px;padding-bottom:0px;background-color:rgba(28,28,30,1);">
+						<i class="material-icons xs col s1 hide-on-small-and-down" style="margin-right:4px;position: relative;top:5px;">redeem</i>
+						<b>Node operators</b> who join incentivized LSD Networks <b>earn ERC-20 token rewards.</b>
+					</li>
+					</ul>
+			</div>
+		</div>
+		
+		<div class="alert card white-text" style="border-radius:10px;background-color:rgba(28,28,30,1);border-color:rgba(242, 25, 64, 0.4);border-style:solid;border-width:1px;">
+			<div class="card-content">
+				<p>
+					<div class="row">
+						<i class="material-icons small col s1" style="margin-right:4px;position: relative;top:15px;">report</i>
+					    <h5 class="col s4">Warning</h5>
+					</div>
+					<ul class="collection" style="border:none;">
+						<li class="collection-item white-text text-darken-2" style="border-bottom:none;background-color:rgba(28,28,30,1);">
+							Use the
+							<b>
+								<a href="https://api.studio.thegraph.com/query/41256/lsd-mainnet/v0.0.2/graphql?query=query+MyQuery+%7B%0A++lsdvalidators+%7B%0A++++smartWallet+%7B%0A++++++liquidStakingNetwork+%7B%0A++++++++savETHPool%0A++++++++feesAndMevPool%0A++++++%7D%0A++++%7D%0A++++id%0A++%7D%0A%7D" style="color:#00ED76;">lsd-mainnet graph</a>
+							</b> to confirm you have the correct validator BLS key or LSD Network ticker.
+						</li>
+						<li class="collection-item white-text text-darken-2" style="border-bottom:none;background-color:rgba(28,28,30,1);">
+							Beware of unverified reward tokens. Tokens with a green checkmark are verified to be legitimate. Always verify the reward token by checking the Etherscan link.
+						</li>
+					</ul>
+					
+				</p>
+			</div>
+		</div>
+		
+		<div class="card-panel lighten-2 white-text" style="background-color:#424242;border-radius:10px;">
+			<h4><b>New bribe</b></h4>
+			<div class="row">
+				<div class="col s12">
+				<ul class="tabs" id="tabs" style="background-color:#424242;">
+					<li class="tab col s6"><a href="#lsdNetwork" style="color:#00ED76;"><b>LSD network</b></a></li>
+					<li class="tab col s6"><a class="active" href="#validator" style="color:#00ED76;"><b>Validator</b></a></li>
+				</ul>
+				</div>
+				<div id="lsdNetwork" class="col s12">
+					<p>You must specify a <b>bribe token</b>, <b>LSD Network ticker</b>, and a <b>total amount of bribe tokens</b></p>
+					<br/>
+					<div class="row input-field">
+						<div class="input-field col s12">
+							<select id="bribeTokenSelectLsdNetwork">
+							<option value="" disabled selected>Choose a bribe token</option>
+							<option value="0x359599d4032D6540F3bE62E459861f742Ceb851f" selected>BSN</option>
+							<option value="0x506C2B850D519065a4005b04b9ceed946A64CB6F">dETH</option>
+							<option value="0x14Ab8194a1cB89D941cc5159873aFDaC3C45094d">sETH</option>
+							<option value="custom">Other</option>
+							</select>
+							<label style="color:#00ED76;">Bribe token</label>
+							
+							<div class="input-field" style="display:none;" id="customBribeTokenDivLsdNetwork">
+								<input class="white-text" type="text" id="customBribeTokenLsdNetwork"/>
+								<label style="color:#00ED76;">Other token contract</label>
+							</div>
+						</div>
+					</div>
+					<div class="row input-field">
+						<input class="white-text" type="text" id="lsdNetworkTickerDeposit"/>
+						<label style="color:#00ED76;">LSD Network ticker</label>
+					</div>
+					<div class = "row">
+						<div class="col s5 input-field">
+							<input class="white-text" type="number" id="tokenAmountDepositLsdNetwork"/>
+							<label style="color:#00ED76;">Tokens per ETH</label>
+						</div>
+						<div class="col s5 input-field">
+							<input class="white-text s6" disabled type="text" value='0' id="tokenAmountDepositTotalLsdNetwork"/>
+							<label style="color:#00ED76;">Total amount</label>
+						</div>
+						<div class="col s2 btn btn-large black-text" id="approveBSNLsdNetwork" style="background-color:#78A7FF;border-radius: 15px;">Approve</div>
+						<div class="col s2 btn btn-large" id="depositBSNLsdNetwork" style="display:none;background-color:#00ED76;border-radius: 15px;">Deposit</div>
+					</div>
+					
+					<div class="progress" id="depositLoadingLsdNetwork" style="display:none;">
+						<div class="indeterminate"></div>
+					</div>
+				</div>
+				<div id="validator" class="col s12">
+					<p>You must specify a <b>bribe token</b>, <b>validator BLS key</b>, and a <b>total amount of bribe tokens</b></p>
+					<br/>
+					<div class="row input-field">
+						<div class="input-field col s12">
+							<select id="bribeTokenSelect">
+							<option value="" disabled selected>Choose a bribe token</option>
+							<option value="0x359599d4032D6540F3bE62E459861f742Ceb851f" selected>BSN</option>
+							<option value="0x506C2B850D519065a4005b04b9ceed946A64CB6F">dETH</option>
+							<option value="0x14Ab8194a1cB89D941cc5159873aFDaC3C45094d">sETH</option>
+							<option value="custom">Other</option>
+							</select>
+							<label style="color:#00ED76;">Bribe token</label>
+							
+							<div class="input-field" style="display:none;" id="customBribeTokenDiv">
+								<input class="white-text" type="text" id="customBribeToken"/>
+								<label style="color:#00ED76;">Other token contract</label>
+							</div>
+						</div>
+					</div>
+					<div class="row input-field">
+						<input class="white-text" type="text" id="validatorBLSDeposit"/>
+						<label style="color:#00ED76;">Validator BLS key</label>
+					</div>
+					<div class = "row">
+						<div class="col s5 input-field">
+							<input class="white-text" type="number" id="tokenAmountDeposit"/>
+							<label style="color:#00ED76;">Tokens per ETH</label>
+						</div>
+						<div class="col s5 input-field">
+							<input class="white-text s6" disabled type="text" value='0' id="tokenAmountDepositTotal"/>
+							<label style="color:#00ED76;">Total amount</label>
+						</div>
+						<div class="col s2 btn btn-large black-text" id="approveBSN" style="background-color:#78A7FF;border-radius: 15px;">Approve</div>
+						<div class="col s2 btn btn-large grey-text text-darken-4" id="depositBSN" style="display:none;background-color:#00ED76;border-radius: 15px;">Deposit</div>
+					</div>
+					
+					<div class="progress" id="depositLoading" style="display:none;">
+						<div class="indeterminate"></div>
+					</div>
+				</div>
+			</div>
+		</div>
+		
+		<div class="card-panel darken-2 white-text" style="background-color:#424242;border-radius:10px;">
+			<h4>Active bribes</h4>
+			<ul class="collection" id="bribesList" style="border:none;">
+				
+			</ul>
+		</div>
+		
+		<div class="card-panel darken-2 white-text" style="background-color:#424242;border-radius:10px;">
+			<h4>Expired bribes</h4>
+			<ul class="collection" id="expiredBribesList" style="border:none;">
+				
+			</ul>
+		</div>
+		
+	  </div>
+
+    </div> 
+    </div>
+
+    <!-- :) -->
+	  <div id="confirmWithdrawal" class="modal">
+        <div class="modal-content">
+            <h4>Confirm</h4>
+            <p>Are you sure you want to withdraw <span id="withdrawBsnAmount"></span> <span id="withdrawTokenSymbol"></span> to the owner of <span id="withdrawBLS"></span>: <span id="withdrawAddr"></span>?</p>
+        </div>
+        <div class="modal-footer">
+            <a href="#!" class="modal-close waves-effect waves-red btn-flat">No</a>
+            <a href="#" class="waves-effect waves-green btn-flat" id="withdrawConfirmBtn">Yes</a>
+       </div>
+    </div>
+
+   
+    <script src="bundle.js"></script>
+	<script>
+		hljs.highlightAll();
+	
+	
+		 document.addEventListener('DOMContentLoaded', function() {
+			var elemsModal = document.querySelectorAll('.modal');
+			var instances = M.Modal.init(elemsModal, undefined);
+			
+			var elemsCollapse = document.querySelectorAll('.collapsible');
+			var instances = M.Collapsible.init(elemsCollapse, undefined);
+			
+			var elems = document.querySelectorAll('select');
+			var instances = M.FormSelect.init(elems, undefined);
+		  });
+	
+		
+	</script>
+  </body>
+</html>
