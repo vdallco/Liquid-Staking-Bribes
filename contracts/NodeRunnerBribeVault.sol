@@ -8,6 +8,13 @@ contract BribeVault{
         uint256 tokenAmount;
         uint256 tokenToEthRatio;
         uint256 expiration; // actually the date where drip rewards are maxed. +28 days is expiration
+        LPSnapshot snapshot;
+    }
+
+    struct LPSnapshot{
+        bool taken;
+        address[] recipients;
+        uint256[] lpBalances;
     }
 
     event BribeAdded(uint256 indexed bribeId, address indexed sender, uint256 epoch);
@@ -27,7 +34,7 @@ contract BribeVault{
     // TO-DO: Remove claimedDeposits and deposits when a TokenDeposit is no longer active (TokenAmount == 0)
     //         to prevent the maps from growing very large.
 
-    //address public stakehouseUniverse = 0xC38ee0eCc213293757dC5a30Cf253D3f40726E4c; // TO-DO: Replace with mainnet. This is Goerli Stakehouse Universe 
+    //address public stakehouseUniverse = 0xC38ee0eCc213293757dC5a30Cf253D3f40726E4c; 
     address public stakehouseUniverse;
     uint256 public bribeLength = 31536000; // 365 days
 
@@ -101,7 +108,8 @@ contract BribeVault{
         }else{ // new Validator bribe
             ERC20(bribeToken).transferFrom(msg.sender, address(this), bribeAmount);
             uint256 expirationSeconds = block.timestamp + bribeLength;
-            deposits[validatorBLSKey] = TokenDeposit(depositIndex, bribeToken, bribeAmount, bribeAmount/28, expirationSeconds);
+            LPSnapshot memory emptySnapshot;
+            deposits[validatorBLSKey] = TokenDeposit(depositIndex, bribeToken, bribeAmount, bribeAmount/28, expirationSeconds, emptySnapshot);
             if(!existingKey){
                 blsDepositKeys.push(validatorBLSKey);
                 blsDepositKeyIndex = blsDepositKeyIndex + 1;
@@ -109,6 +117,29 @@ contract BribeVault{
             emit BribeAdded(depositIndex, msg.sender, block.timestamp);
             depositIndex = depositIndex + 1;
         }
+    }
+
+    function setLPSnapshot(bytes calldata validatorBLSKey, address[] calldata recipients, uint256[] calldata lpTokenAmounts) public {
+        require(recipients.length == lpTokenAmounts.length,"recipients length must match lpTokenAmounts length");
+        TokenDeposit storage deposit = deposits[validatorBLSKey];
+        require(deposit.snapshot.taken == false, "snapshot already taken");
+        require(deposit.expiration > block.timestamp, "bribe expired");
+        require(deposit.tokenAmount > 0, "bribe is empty");
+
+        uint256 ethAccountedFor = 0;
+        for(uint256 x = 0; x<recipients.length;x++){
+            uint256 ethAmount = ethDepositsByBLSKeyAndAddress(validatorBLSKey, recipients[x]);
+            require(ethAmount == lpTokenAmounts[x],  "mismatched total LP token balance");
+            ethAccountedFor += lpTokenAmounts[x];
+        }
+
+        require(ethAccountedFor == 28000000000000000000, "snapshot must account for 28 ETH");
+
+        LPSnapshot memory newSnapshot;
+        newSnapshot.taken = true;
+        newSnapshot.recipients = recipients;
+        newSnapshot.lpBalances = lpTokenAmounts;
+        deposit.snapshot = newSnapshot;
     }
 
     function getNodeRunnerAddress(bytes calldata validatorBLSKey) public view returns (address){
@@ -171,9 +202,23 @@ contract BribeVault{
         return savETHDeposits + mevFeesDeposits;
     }
 
+    function ethDepositsBySnapshot(bytes calldata validatorBLSKey, address depositor) public view returns (uint256){
+        TokenDeposit storage deposit = deposits[validatorBLSKey];
+        uint256 snapshotIdx = type(uint256).max;
+        for (uint256 x = 0; x<deposit.snapshot.recipients.length;x++){
+            if(deposit.snapshot.recipients[x]==depositor){
+                snapshotIdx = x;
+            }
+        }
+
+        require(snapshotIdx<type(uint256).max, "recipient not found");
+        return deposit.snapshot.lpBalances[snapshotIdx];
+    }
+
     function claimable(bytes calldata validatorBLSKey) public view returns(uint256) {
         TokenDeposit storage deposit = deposits[validatorBLSKey];
-        uint256 ethAmount = ethDepositsByBLSKeyAndAddress(validatorBLSKey, msg.sender);
+        require(deposit.snapshot.taken,"LP snapshot not taken");
+        uint256 ethAmount = ethDepositsBySnapshot(validatorBLSKey, msg.sender);
 
         return (deposit.tokenToEthRatio * ethAmount)/(10**18);
         // if (block.timestamp >= deposit.expiration) {
@@ -208,8 +253,10 @@ contract BribeVault{
         for (uint256 i = 0; i < depositsClaimed.length; i++) {
             require(depositsClaimed[i] != deposit.id, "already claimed");
         }
+
+        require(deposit.snapshot.taken, "LP balance snapshot not taken");
         
-        uint256 amount = claimable(validatorBLSKey); // 1st element is claimable now. 2nd element is total claimable
+        uint256 amount = claimable(validatorBLSKey);
 
         uint256 feeAmount = 0;
         if(feePerClaimDivisor > 0){
@@ -217,7 +264,7 @@ contract BribeVault{
         }
         require(amount>0,"nothing to claim");
         require(deposit.tokenAmount >= amount, "insufficient bribe balance"); // tested and working
-        require(deposit.expiration > currentTimestamp, "bribe expired"); // ExpirationDate + 28 days
+        require(deposit.expiration > currentTimestamp, "bribe expired"); // ExpirationDate
         deposit.tokenAmount = deposit.tokenAmount - amount;                // tested and working
         deposits[validatorBLSKey] = deposit;                           // tested and working
         claimedDeposits[msg.sender].push(deposit.id);
