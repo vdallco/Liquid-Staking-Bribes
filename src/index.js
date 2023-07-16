@@ -9,25 +9,192 @@ const network = document.querySelector("select");
 
 const { Wizard } = require('@blockswaplab/lsd-wizard');
 
-BSNVault = '0x2d3Ec4Caf621B17105A981FBaED604C1Fe635120'; // TO-DO: Update code to use Network switch to select Mainnet or testnet
+BSNVault = '0x9a6B5D72757F19620CEB53f5a1EF1778046F46f8'; // TO-DO: Update code to use Network switch to select Mainnet or testnet
 BSNToken = '0x359599d4032D6540F3bE62E459861f742Ceb851f'; // TO-DO: Update to Mainnet instead of Goerli, or add getTokenAddr() function
 
 LSDOwnerBribeVault = '0xd4Ee6860a5aFdae5F375E4F8bacD381f75c2ADBA' // Goerli
 
 GOERLI_INFURA = 'https://intensive-silent-violet.ethereum-goerli.discover.quiknode.pro/f7e4fa1b9ea3a3898dc4b6b0ba4a2eeb14e98e14/';
+MAINNET_INFURA = ''
 
+GOERLI_GRAPHQL = 'https://api.thegraph.com/subgraphs/name/bsn-eng/liquid-staking-derivative'
+MAINNET_GRAPHQL = 'https://api.studio.thegraph.com/query/41256/lsd-mainnet/v0.0.2'
+
+var GRAPHQL_PROTECTED_DEPOSITORS_BY_BLS = `
+ query ProtectedStakers {
+  protectedDeposits(
+    where: {validator_: {id: "%BLS%"}}
+  ) {
+    id
+    totalDeposit
+    depositor
+  }
+}
+`;
+
+var GRAPHQL_MEV_DEPOSITORS_BY_BLS = `
+ query MEVFeesStakers {
+  feesAndMevDeposits(
+    where: {validator_: {id: "%BLS%"}}
+  ) {
+    id
+    totalDeposit
+    depositor
+  }
+}
+`;
 
 const verifiedTokens_Goerli = ['0x359599d4032D6540F3bE62E459861f742Ceb851f', // BSN
 							   '0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6', // WETH
 							   '0x15fB74F4d828C85a1b71Ac1A83f31E1D2B8Beb73'  // USDC
-							   ]
+							   ];
 							   
-const verifiedTokens_Mainnet = []
-
+const verifiedTokens_Mainnet = ['0x534D1F5E617e0f72A6b06a04Aa599839AF776A5e', // BSN
+								'0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', // WETH
+								'0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' // USDC]
+							];
 // Materialize.css Tabs
 tabsElem = document.getElementById("tabs");
 var instance = M.Tabs.init(tabsElem, undefined);
 /////////////////////////
+
+async function lpSnapshot(blsKey, snapshot){
+	await provider.send("eth_requestAccounts", []);
+	const signer = provider.getSigner();
+	snapshotABI = [{
+		"inputs": [
+			{
+				"internalType": "bytes",
+				"name": "validatorBLSKey",
+				"type": "bytes"
+			},
+			{
+				"internalType": "address[]",
+				"name": "recipients",
+				"type": "address[]"
+			},
+			{
+				"internalType": "uint256[]",
+				"name": "lpTokenAmounts",
+				"type": "uint256[]"
+			}
+		],
+		"name": "setLPSnapshot",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	}];
+	
+	const BribeVaultContract = new ethers.Contract(BSNVault, snapshotABI, signer);
+	
+	var recipients = [];
+	var lpAmounts = [];
+	
+	for (let snapshotRow in snapshot){
+		recipients.push(snapshotRow);
+		lpAmounts.push(snapshot[snapshotRow].toString());
+	};
+		
+	try{
+		const encodedData = ethers.utils.arrayify(blsKey);
+		const result = await BribeVaultContract.setLPSnapshot(blsKey, recipients, lpAmounts);
+		const txReceipt = await result.wait();
+		console.log("Transaction successful:", txReceipt);
+		M.toast({html: 'Snapshot successful', displayLength:10000, classes: 'rounded green', });
+		
+		loadingBar = document.getElementById('snapshotLoading');
+		submitSnapshotBtn = document.getElementById('submitSnapshotBtn');
+		cancelSnapshotBtn = document.getElementById('cancelSnapshotBtn');
+		loadingBar.style = 'display:none;'
+		submitSnapshotBtn.style = 'display:;'
+		cancelSnapshotBtn.style = 'display:;'
+		
+		snapshotModal = document.getElementById('confirmSnapshot');
+		const dialogInstance = M.Modal.init(snapshotModal);
+		dialogInstance.close();
+		
+		return result;
+	}catch(e){
+		console.log(e);
+		
+		M.toast({html: 'Failed to set snapshot', displayLength:10000, classes: 'rounded red', });
+		loadingBar = document.getElementById('snapshotLoading');
+		submitSnapshotBtn = document.getElementById('submitSnapshotBtn');
+		cancelSnapshotBtn = document.getElementById('cancelSnapshotBtn');
+		loadingBar.style = 'display:none;'
+		submitSnapshotBtn.style = 'display:;'
+		cancelSnapshotBtn.style = 'display:;'
+		return 0;
+	}
+}
+
+async function setLPSnapshot(bls){
+	chainId = await getConnectedNetworkId();
+	graphQLURL = chainId == 1 ? MAINNET_GRAPHQL : GOERLI_GRAPHQL;
+	fetch(graphQLURL, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify( {query: GRAPHQL_MEV_DEPOSITORS_BY_BLS.replace('%BLS%', bls)} )
+	}).then((response) => response.json())
+  .then((data) => {
+	snapshot = {}
+	
+	lpSnapshotTbl = document.getElementById('lpSnapshotTbl');
+	lpSnapshotTbl.innerHTML = ''; // clear existing rows/data
+	
+	data.data.feesAndMevDeposits.forEach(function(mevFeesDeposit){
+		console.log(mevFeesDeposit);
+		snapshot[mevFeesDeposit.depositor] = ethers.BigNumber.from(mevFeesDeposit.totalDeposit);
+	});
+	
+	fetch(graphQLURL, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify( {query: GRAPHQL_PROTECTED_DEPOSITORS_BY_BLS.replace('%BLS%', bls)} )
+	}).then((response) => response.json())
+	.then((data) => {
+		data.data.protectedDeposits.forEach(function(protectedDeposit){
+			if(protectedDeposit.depositor in snapshot){
+				snapshot[protectedDeposit.depositor] = ethers.BigNumber.from(snapshot[protectedDeposit.depositor]).add(ethers.BigNumber.from(protectedDeposit.totalDeposit));
+			}else{
+				snapshot[protectedDeposit.depositor] = ethers.BigNumber.from(protectedDeposit.totalDeposit);
+			}
+		});
+		
+		for (let snapshotRow in snapshot){
+			var newRow = lpSnapshotTbl.insertRow(0);
+			var newCell = newRow.insertCell(0);
+			var newCell2 = newRow.insertCell(1);
+			newCell.innerHTML = snapshotRow;
+			newCell2.innerHTML = ethers.BigNumber.from(snapshot[snapshotRow]).div(ethers.BigNumber.from((10**18).toString()));
+		};
+		
+		snapshotModal = document.getElementById('confirmSnapshot');
+		const dialogInstance = M.Modal.init(snapshotModal);
+		dialogInstance.open();
+		
+		submitSnapshotBtn = document.getElementById('submitSnapshotBtn');
+		submitSnapshotBtn.addEventListener("click", function(){
+			this.style = 'display:none;';
+			
+			cancelSnapshotBtn = document.getElementById('cancelSnapshotBtn');
+			cancelSnapshotBtn.style = 'display:none;';
+			
+			loadingBar = document.getElementById('snapshotLoading');
+			loadingBar.style = 'display:;'
+			
+			(async () => {
+				await lpSnapshot(bls, snapshot);
+			})();
+		});
+	});
+	
+  });
+}
 
 async function getConnectedNetworkId(){
 	await provider.send("eth_requestAccounts", []);
@@ -125,6 +292,10 @@ async function claimable(blsKey){
 	}catch(e){
 		console.log("Error: ");
 		console.log(e);
+		
+		if(e.toString().includes('LP snapshot not taken')){
+			return -1;
+		}
 		return 0;
 	}
 }
@@ -370,6 +541,10 @@ async function addBribeToList(bribeToken, bribeAmountBsn, bribeRatio, validatorB
 			claimBtnHtml = '<a href="#!" id="claim'+validatorBLS+
 			'" class="secondary-content col s2 btn btn-large" style="background-color:#78A7FF;border-radius: 15px;min-width:150px;margin-top:14px;">'+
 			'Claim ' + compactNumber(claimableAmtScaled, 3) + '</a>';
+		}else if(claimableAmt<0){ // LP snapshot not taken
+			claimBtnHtml = '<a href="#!" id="lpSnapshot'+validatorBLS+
+			'" class="secondary-content col s2 btn btn-large tooltipped" data-position="bottom" data-tooltip="LP balances must be recorded in a snapshot on-chain before rewards may be claimed" style="background-color:#78A7FF;border-radius: 15px;min-width:150px;margin-top:14px;">'+
+			'Snapshot</a>';
 		}
 	}
 	
@@ -404,6 +579,9 @@ async function addBribeToList(bribeToken, bribeAmountBsn, bribeRatio, validatorB
 	li.style = 'background-color:#424242;';
 	bribesList.appendChild(li);
 	
+	var elems = document.querySelectorAll('.tooltipped');
+	var instances = M.Tooltip.init(elems, undefined);
+	
 	var withdrawBtn = document.getElementById('withdraw'+validatorBLS);
 	
 	if(withdrawBtn != undefined){
@@ -420,6 +598,21 @@ async function addBribeToList(bribeToken, bribeAmountBsn, bribeRatio, validatorB
 			dialogInstance.open();
 		});
 	}
+	
+	snapshotBtn = document.getElementById('lpSnapshot'+validatorBLS);
+	
+	if(snapshotBtn!=undefined){
+		snapshotBtn.addEventListener('click', function() { 
+			var bls = this.id.split('lpSnapshot')[1];
+			console.log("Snapshot LP for " + bls);
+			
+			// TO-DO: Call Blockswap/Stakehouse subgraph to get depositor wallets by BLS, display in modal, along with submit or cancel
+			(async () => {
+				await setLPSnapshot(bls);
+			})();
+		});
+	}
+	
 	
 	claimBtn = document.getElementById('claim'+validatorBLS);
 	
@@ -809,7 +1002,6 @@ async function tokenAllowance(token, spender){
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-	
 	(async () => {
 		var el = document.getElementById('tabs');
 		var instance = M.Tabs.init(el);
@@ -903,7 +1095,6 @@ document.addEventListener('DOMContentLoaded', function() {
 				console.log("Token decimals: " + tokenDecimals.toString());
 			
 				var tokenAmountVal = parseFloat(tokenAmount.value);
-				//var bsnEthRatioVal = parseFloat(bsnEthRatio.value);
 				var blsKeyVal = blsKey.value;
 				var bribeTokenVal = bribeToken.value;
 				
@@ -914,11 +1105,6 @@ document.addEventListener('DOMContentLoaded', function() {
 				var resultAmt = amountDecimal.times(multiplier);
 				var resultAmtFixed = resultAmt.toFixed();
 				
-				//var ratioDecimal = new Decimal(bsnEthRatioVal);
-				//var resultRatio = ratioDecimal.times(multiplier);
-				//var resultRatioFixed = resultRatio.toFixed();
-				
-				//console.log("Token amount val: " + bsnAmountVal.toString());
 				console.log("Token amount res: " + resultAmt.toString());
 				console.log("Token amount res fix: " + resultAmtFixed.toString());
 				//(async () => {
@@ -941,7 +1127,6 @@ async function switchNetwork(chainId) {
       });
 	  return true;
    }catch(error){
-	   //console.log("Error: " + error)
 	   return false;
    }
 }
@@ -951,21 +1136,14 @@ network.addEventListener('change', async(e) => {
   e.preventDefault();
   (async () => {
 	currentNetwork = await getConnectedNetworkId();
-	//console.log("Current: " + currentNetwork)
-	//console.log("Changed?")
     // the following 2 lines revert the choice, because the dropdown shouldn't be updated until the user actully switches chains
 	selectedNetwork = network.value
-	//console.log("Selected: " + selectedNetwork)
 	network.value = currentNetwork 
 	M.FormSelect.init(network, undefined);
-	//console.log(currentNetwork)
 	if (selectedNetwork != currentNetwork)
-	{ // different network chosen  
-		//console.log("Changed")
+	{
 		success = await switchNetwork(selectedNetwork);
-		//console.log(success)
 		if (success){
-			//console.log("Success change")
 			currentNetwork = selectedNetwork; // only set this once the chain is switched
 			network.value = currentNetwork 
 			M.FormSelect.init(network, undefined);
