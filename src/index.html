@@ -220,6 +220,31 @@
             <a href="#" class="waves-effect waves-green btn-flat" id="withdrawConfirmBtn">Yes</a>
        </div>
     </div>
+	
+	<div id="confirmSnapshot" class="modal">
+        <div class="modal-content">
+            <h4>Snapshot</h4>
+            <p>Please review the following depositor information and click Submit if everything looks correct</p>
+			<table>
+				<thead>
+					<tr>
+						<th>Depositor</th>
+						<th scope="col">ETH deposited</th>
+					</tr>
+				</thead>
+				<tbody id="lpSnapshotTbl">
+				
+				</tbody>
+			</table>
+        </div>
+        <div class="modal-footer">
+            <a href="#!" class="modal-close waves-effect waves-red btn-flat" id="cancelSnapshotBtn">Cancel</a>
+            <a href="#" class="waves-effect waves-green btn-flat" id="submitSnapshotBtn">Submit</a>
+			<div class="progress" id="snapshotLoading" style="display:none;">
+				<div class="indeterminate"></div>
+			</div>
+       </div>
+    </div>
 
    
     <script src="bundle.js"></script>
