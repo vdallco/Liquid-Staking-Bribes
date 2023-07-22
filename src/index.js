@@ -774,7 +774,7 @@ async function checkBribes(){
 	Object.keys(bribes).forEach((k) => {
 		const bribe = bribes[k];
 		(async () => {
-			await addBribeToList(bribe.bribeToken, bribe.bribeAmount, bribe.bribeRatio, bribe.bls, bribe.expiration, bribe.claimed);
+			await addBribeToList(bribe.bribeToken, bribe.bribeAmount, bribe.bribeRatio, bribe.bls, bribe.expiration, bribe.claimed, "nodeRunner");
 		})();
 	});
 	
