@@ -115,14 +115,10 @@
 							<option value="0x359599d4032D6540F3bE62E459861f742Ceb851f" selected>BSN</option>
 							<option value="0x506C2B850D519065a4005b04b9ceed946A64CB6F">dETH</option>
 							<option value="0x14Ab8194a1cB89D941cc5159873aFDaC3C45094d">sETH</option>
-							<option value="custom">Other</option>
+							<option value="0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6">WETH</option>
+							<option value="0x15fB74F4d828C85a1b71Ac1A83f31E1D2B8Beb73">USDC</option>
 							</select>
 							<label style="color:#00ED76;">Bribe token</label>
-							
-							<div class="input-field" style="display:none;" id="customBribeTokenDivLsdNetwork">
-								<input class="white-text" type="text" id="customBribeTokenLsdNetwork"/>
-								<label style="color:#00ED76;">Other token contract</label>
-							</div>
 						</div>
 					</div>
 					<div class="row input-field">
@@ -132,10 +128,10 @@
 					<div class = "row">
 						<div class="col s5 input-field">
 							<input class="white-text" type="number" id="tokenAmountDepositLsdNetwork"/>
-							<label style="color:#00ED76;">Tokens per ETH</label>
+							<label style="color:#00ED76;">Tokens per validator</label>
 						</div>
 						<div class="col s5 input-field">
-							<input class="white-text s6" disabled type="text" value='0' id="tokenAmountDepositTotalLsdNetwork"/>
+							<input class="white-text s6" type="text" value='0' id="tokenAmountDepositTotalLsdNetwork"/>
 							<label style="color:#00ED76;">Total amount</label>
 						</div>
 						<div class="col s2 btn btn-large black-text" id="approveBSNLsdNetwork" style="background-color:#78A7FF;border-radius: 15px;">Approve</div>
@@ -156,14 +152,10 @@
 							<option value="0x359599d4032D6540F3bE62E459861f742Ceb851f" selected>BSN</option>
 							<option value="0x506C2B850D519065a4005b04b9ceed946A64CB6F">dETH</option>
 							<option value="0x14Ab8194a1cB89D941cc5159873aFDaC3C45094d">sETH</option>
-							<option value="custom">Other</option>
+							<option value="0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6">WETH</option>
+							<option value="0x15fB74F4d828C85a1b71Ac1A83f31E1D2B8Beb73">USDC</option>
 							</select>
 							<label style="color:#00ED76;">Bribe token</label>
-							
-							<div class="input-field" style="display:none;" id="customBribeTokenDiv">
-								<input class="white-text" type="text" id="customBribeToken"/>
-								<label style="color:#00ED76;">Other token contract</label>
-							</div>
 						</div>
 					</div>
 					<div class="row input-field">
@@ -191,14 +183,14 @@
 		</div>
 		
 		<div class="card-panel darken-2 white-text" style="background-color:#424242;border-radius:10px;">
-			<h4>Active bribes</h4>
+			<h4><b>Active bribes</b></h4>
 			<ul class="collection" id="bribesList" style="border:none;">
 				
 			</ul>
 		</div>
 		
 		<div class="card-panel darken-2 white-text" style="background-color:#424242;border-radius:10px;">
-			<h4>Expired bribes</h4>
+			<h4><b>Expired bribes</b></h4>
 			<ul class="collection" id="expiredBribesList" style="border:none;">
 				
 			</ul>
