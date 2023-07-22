@@ -9,10 +9,11 @@ const network = document.querySelector("select");
 
 const { Wizard } = require('@blockswaplab/lsd-wizard');
 
-BSNVault = '0x9a6B5D72757F19620CEB53f5a1EF1778046F46f8'; // TO-DO: Update code to use Network switch to select Mainnet or testnet
-BSNToken = '0x359599d4032D6540F3bE62E459861f742Ceb851f'; // TO-DO: Update to Mainnet instead of Goerli, or add getTokenAddr() function
+BribeVault_NodeRunners_Goerli = '0xeC01dfbE79412b078521793df4415AD8b84EDB27'; // TO-DO: Update code to use Network switch to select Mainnet or testnet
+BribeVault_NodeRunners_Mainnet = ''; 
 
-LSDOwnerBribeVault = '0xd4Ee6860a5aFdae5F375E4F8bacD381f75c2ADBA' // Goerli
+BribeVault_LSDNetworks_Goerli = '0xd4Ee6860a5aFdae5F375E4F8bacD381f75c2ADBA'
+BribeVault_LSDNetworks_Mainnet = ''
 
 GOERLI_INFURA = 'https://intensive-silent-violet.ethereum-goerli.discover.quiknode.pro/f7e4fa1b9ea3a3898dc4b6b0ba4a2eeb14e98e14/';
 MAINNET_INFURA = ''
@@ -42,6 +43,19 @@ var GRAPHQL_MEV_DEPOSITORS_BY_BLS = `
     depositor
   }
 }
+`;
+
+var GRAPHQL_NODERUNNERS_BY_NETWORK = `
+  query GetSmartWallet {
+    smartWallets(where: {liquidStakingNetwork_: {ticker: "%NETWORK%"}}) {
+      nodeRunner {
+        id
+        validators {
+          id
+        }
+      }
+    }
+  }
 `;
 
 const verifiedTokens_Goerli = ['0x359599d4032D6540F3bE62E459861f742Ceb851f', // BSN
@@ -85,7 +99,7 @@ async function lpSnapshot(blsKey, snapshot){
 		"type": "function"
 	}];
 	
-	const BribeVaultContract = new ethers.Contract(BSNVault, snapshotABI, signer);
+	const BribeVaultContract = new ethers.Contract(BribeVault_NodeRunners_Goerli, snapshotABI, signer);
 	
 	var recipients = [];
 	var lpAmounts = [];
@@ -277,20 +291,14 @@ async function claimable(blsKey){
 		"stateMutability": "view",
 		"type": "function"
 	}];
-	const BSNVaultContract = new ethers.Contract(BSNVault, contractABI, signer);
-	
-	console.log("Checking claimable for BLS key " + blsKey);
+	const BribeVault_NodeRunners_GoerliContract = new ethers.Contract(BribeVault_NodeRunners_Goerli, contractABI, signer);
 	
 	try{
 		const encodedData = ethers.utils.arrayify(blsKey);
-		const claimableResult = await BSNVaultContract.claimable(encodedData);
-	
-		console.log("claimable result");
-		console.log(claimableResult.toString());
+		const claimableResult = await BribeVault_NodeRunners_GoerliContract.claimable(encodedData);
 		
 		return claimableResult;
 	}catch(e){
-		console.log("Error: ");
 		console.log(e);
 		
 		if(e.toString().includes('LP snapshot not taken')){
@@ -322,12 +330,12 @@ async function claimableNodeRunner(lsdNetworkTicker){
 		"stateMutability": "view",
 		"type": "function"
 	}];
-	const BSNVaultContract = new ethers.Contract(LSDOwnerBribeVault, contractABI, signer);
+	const BribeVault_NodeRunners_GoerliContract = new ethers.Contract(BribeVault_LSDNetworks_Goerli, contractABI, signer);
 	
 	console.log("Checking claimable for LSD network " + lsdNetworkTicker);
 	
 	try{
-		const claimableResult = await BSNVaultContract.claimable(lsdNetworkTicker);
+		const claimableResult = await BribeVault_NodeRunners_GoerliContract.claimable(lsdNetworkTicker);
 	
 		console.log("claimable result");
 		console.log(claimableResult.toString());
@@ -372,13 +380,13 @@ async function hasClaimed(blsKey, address){
 		}
 	];
 	
-	const BSNVaultContract = new ethers.Contract(BSNVault, contractABI, signer);
+	const BribeVault_NodeRunners_GoerliContract = new ethers.Contract(BribeVault_NodeRunners_Goerli, contractABI, signer);
 	
 	console.log("Checking hasClaimed for addr " + address + " and BLS key " + blsKey);
 	
 	try{
 		const encodedData = ethers.utils.arrayify(blsKey);
-		const hasClaimedResult = await BSNVaultContract.hasClaimed(encodedData, address);
+		const hasClaimedResult = await BribeVault_NodeRunners_GoerliContract.hasClaimed(encodedData, address);
 	
 		console.log("hasClaimed result");
 		console.log(hasClaimedResult.toString());
@@ -422,13 +430,13 @@ async function hasClaimedNodeRunner(lsdTicker, validatorBLS){
 		}
 	];
 	
-	const BSNVaultContract = new ethers.Contract(LSDOwnerBribeVault, contractABI, signer);
+	const BribeVault_NodeRunners_GoerliContract = new ethers.Contract(BribeVault_LSDNetworks_Goerli, contractABI, signer);
 	
 	console.log("Checking hasClaimed for LSD ticker " + lsdTicker + " and BLS key " + validatorBLS);
 	
 	try{
 		const encodedData = ethers.utils.arrayify(validatorBLS);
-		const hasClaimedResult = await BSNVaultContract.hasClaimed(lsdTicker, encodedData);
+		const hasClaimedResult = await BribeVault_NodeRunners_GoerliContract.hasClaimed(lsdTicker, encodedData);
 	
 		console.log("hasClaimed result");
 		console.log(hasClaimedResult.toString());
@@ -451,7 +459,15 @@ function getEtherscanLink(){
 	}
 }
 
-async function addBribeToList(bribeToken, bribeAmountBsn, bribeRatio, validatorBLS, expiration, disabled){
+async function addBribeToList(bribeToken, bribeAmountBsn, bribeRatio, validatorBLSorNetworkName, expiration, disabled, bribeType){
+	var networkName;
+	var validatorBLS;
+	if(bribeType=="nodeRunner"){
+		validatorBLS = validatorBLSorNetworkName;
+	}else{
+		networkName = validatorBLSorNetworkName;
+	}
+	
 	await provider.send("eth_requestAccounts", []);
 	const signer = provider.getSigner();
 	
@@ -460,35 +476,25 @@ async function addBribeToList(bribeToken, bribeAmountBsn, bribeRatio, validatorB
 	});
 	
 	const claimableAmt = await claimable(validatorBLS);
-	console.log("Claimable amount: " + claimableAmt.toString());
 	
 	const result = await wizard.helper.getValidatorDetails(validatorBLS);
-	console.log(result);
 	var lsdNetworkTicker = "???"
 	if(result!=undefined){
 		lsdNetworkTicker = result.lsd;
 	}
-	console.log("Network ticker for : " + validatorBLS + ": " + lsdNetworkTicker);
 	
 	bribesList = document.getElementById('bribesList');
 	var li = document.createElement("li");
 	li.classList.add('collection-item');
 	li.classList.add('white-text');
 	
-	console.log("moment.unix(" + expiration.toString());
-	
 	const epochSeconds = Math.round(Date.now() / 1000);
 	const bribeExpired = epochSeconds > expiration;
 	const expirationDate = moment.unix(expiration);
 	const expirationStr = expirationDate.fromNow();
 	
-	//console.log("Bribe amount: " + bribeAmountBsn.toString());
-	//console.log("Bribe amount: " + bribeRatio.toString());
 	const bribeAmount = new Decimal(bribeAmountBsn.toString());
 	const rewardsRatio = new Decimal(bribeRatio.toString());
-	
-	//console.log("bribeAmount: " + bribeAmount.toString());
-	//console.log("rewardsRatio: " + rewardsRatio.toString());
 	
 	abi = [{
 		"constant": true,
@@ -523,13 +529,8 @@ async function addBribeToList(bribeToken, bribeAmountBsn, bribeRatio, validatorB
 	tokenDecimals = await bribeTokenContract.decimals();
 	
 	const divisor = new Decimal(Math.pow(10,tokenDecimals));
-	//console.log("divisor: " + divisor.toString());
 	const bribeAmtScaled = bribeAmount.div(divisor);
 	const rewardsRatioScaled = rewardsRatio.div(divisor);
-	
-	
-	console.log("bribeAmtScaled: " + bribeAmtScaled.toString());
-	console.log("rewardsRatioScaled: " + rewardsRatioScaled.toString());
 	
 	claimBtnHtml = "";
 	if(disabled){
@@ -604,9 +605,7 @@ async function addBribeToList(bribeToken, bribeAmountBsn, bribeRatio, validatorB
 	if(snapshotBtn!=undefined){
 		snapshotBtn.addEventListener('click', function() { 
 			var bls = this.id.split('lpSnapshot')[1];
-			console.log("Snapshot LP for " + bls);
 			
-			// TO-DO: Call Blockswap/Stakehouse subgraph to get depositor wallets by BLS, display in modal, along with submit or cancel
 			(async () => {
 				await setLPSnapshot(bls);
 			})();
@@ -620,7 +619,6 @@ async function addBribeToList(bribeToken, bribeAmountBsn, bribeRatio, validatorB
 		claimBtn.addEventListener('click', function() { 
 			var goerli_http = new ethers.providers.JsonRpcProvider(GOERLI_INFURA);
 			var bls = this.id.split('claim')[1];
-			console.log("Claiming rewards for " + bls);
 			
 			const contractABI = [
 				{
@@ -638,9 +636,8 @@ async function addBribeToList(bribeToken, bribeAmountBsn, bribeRatio, validatorB
 				}];
 		
 			const encodedData = ethers.utils.arrayify(bls);
-			const contract = new ethers.Contract(BSNVault, contractABI, signer);
+			const contract = new ethers.Contract(BribeVault_NodeRunners_Goerli, contractABI, signer);
 			
-			//var signer2 = provider.getSigner();
 			const gasPrice = provider.getGasPrice().then(function(d){
 				console.log("Gas gas price: " + d.toString());
 				//const gasLimit = contract.estimateGas.claim(encodedData).then(function(g){
@@ -651,7 +648,6 @@ async function addBribeToList(bribeToken, bribeAmountBsn, bribeRatio, validatorB
 					console.log(tx);
 					try {
 						const txReceipt = await tx.wait();
-						console.log("Transaction successful:", txReceipt);
 						M.toast({html: 'Claim succeeded!', displayLength:10000, classes: 'rounded green', });
 					} catch (error) {
 						console.log("Transaction failed:", error);
@@ -742,7 +738,7 @@ async function checkBribes(){
 	}
 	];
 	
-	const BribeVaultContract = new ethers.Contract(BSNVault, contractABI, signer);
+	const BribeVaultContract = new ethers.Contract(BribeVault_NodeRunners_Goerli, contractABI, signer);
 	
 	const blsKeyIndex = await BribeVaultContract.blsDepositKeyIndex();
 	
@@ -750,7 +746,6 @@ async function checkBribes(){
 	var highestBribeRatio = 0;
 	for(v = 0; v<blsKeyIndex; v++){
 		const validator = await BribeVaultContract.blsDepositKeys(v);
-		console.log("Checking bribes for: " + validator);
 		
 		try{
 			const encodedData = ethers.utils.arrayify(validator);
@@ -768,22 +763,18 @@ async function checkBribes(){
 			}else{
 				bribes[validator] = {'bribeToken':bribe[1],'bribeAmount':bribe[2], 'bribeRatio':bribe[3], 'expiration': bribe[4], 'claimed': false, 'bls':validator}
 			}
-			console.log("Bribe for " + validator + " : " + bribe);
 		}catch(e){
 			console.log("No bribes for " + validator);
-			console.log(e);
+			//console.log(e);
 		}
 	}
-	
-	console.log("Bribes: ");
-	console.log(bribes);
-	
+
 	sortedBribes=[];
 	
 	Object.keys(bribes).forEach((k) => {
 		const bribe = bribes[k];
 		(async () => {
-			await addBribeToList(bribe.bribeToken, bribe.bribeAmount, bribe.bribeRatio, bribe.bls, bribe.expiration, bribe.claimed);
+			await addBribeToList(bribe.bribeToken, bribe.bribeAmount, bribe.bribeRatio, bribe.bls, bribe.expiration, bribe.claimed, "nodeRunner");
 		})();
 	});
 	
@@ -850,7 +841,7 @@ async function approveTokenSpend(token, amount){
 	var resultFixed = result.toFixed();
 	
 	try {
-	  const approval = await BribeTokenContract.approve(BSNVault, resultFixed);
+	  const approval = await BribeTokenContract.approve(BribeVault_NodeRunners_Goerli, resultFixed);
 	  console.log(approval);
 	  const approvalReceipt = await approval.wait();
 	  console.log("Transaction successful:", approvalReceipt);
@@ -888,8 +879,8 @@ async function withdrawBSN(blsKeyVal){
 		"type": "function"
 	}];
 	
-	const BSNVaultContract = new ethers.Contract(BSNVault, abi, signer);
-	var depositTx = await BSNVaultContract.withdrawRemainingBSN(blsKeyVal);
+	const BribeVault_NodeRunners_GoerliContract = new ethers.Contract(BribeVault_NodeRunners_Goerli, abi, signer);
+	var depositTx = await BribeVault_NodeRunners_GoerliContract.withdrawRemainingBSN(blsKeyVal);
 	console.log(depositTx);
 	
 	try {
@@ -934,7 +925,7 @@ async function depositBribe(bribeToken, bribeAmountVal, blsKeyVal){
 		"type": "function"
 	}];
 	
-	const BribeVaultContract = new ethers.Contract(BSNVault, abi, signer);
+	const BribeVaultContract = new ethers.Contract(BribeVault_NodeRunners_Goerli, abi, signer);
 	
 	const gasPrice = provider.getGasPrice().then(function(d){
 		console.log("Gas price: " + d.toString());
@@ -1024,7 +1015,7 @@ document.addEventListener('DOMContentLoaded', function() {
 				
 				console.log("Checking token allowance...");
 				
-				tokenAllowance(bribeToken.value, BSNVault).then(function(allowance){
+				tokenAllowance(bribeToken.value, BribeVault_NodeRunners_Goerli).then(function(allowance){
 				
 					if(allowance >= tokenAmountVal){
 						console.log("Allowance already exists");
@@ -1056,17 +1047,6 @@ document.addEventListener('DOMContentLoaded', function() {
 			}
 			totalTokenValue = document.getElementById('tokenAmountDepositTotal');
 			totalTokenValue.value = new Decimal(parseFloat(this.value)) * parseFloat(28);
-		});
-		
-		bts = document.getElementById('bribeTokenSelect');
-		bts.addEventListener('change',function(){
-			var val = this.value;
-			bribeTokenContractDiv = document.getElementById('customBribeTokenDiv');
-			if(val=='custom'){
-				bribeTokenContractDiv.style = "display:;";
-			}else{
-				bribeTokenContractDiv.style = "display:none;";
-			}
 		});
 		
 		withdrawaBSNBtn = document.getElementById('withdrawConfirmBtn');

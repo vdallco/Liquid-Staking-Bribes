@@ -2,12 +2,26 @@
 import "https://raw.githubusercontent.com/OpenZeppelin/openzeppelin-contracts/master/contracts/token/ERC20/ERC20.sol";
 
 contract BribeVault{
+    // reentrancyGuard //
+    uint256 private constant _NOT_ENTERED = 1;
+    uint256 private constant _ENTERED = 2;
+
+    uint256 private _status;
+
+    modifier nonReentrant() {
+        require(_status != _ENTERED, "ReentrancyGuard: reentrant call");
+        _status = _ENTERED;
+        _;
+        _status = _NOT_ENTERED;
+    }
+    ///////////////////////
+
     struct TokenDeposit{
         uint256 id;
         address token;
         uint256 tokenAmount;
         uint256 tokenToEthRatio;
-        uint256 expiration; // actually the date where drip rewards are maxed. +28 days is expiration
+        uint256 expiration; 
         LPSnapshot snapshot;
     }
 
@@ -30,25 +44,36 @@ contract BribeVault{
     bytes[] public blsDepositKeys;
     uint256 public blsDepositKeyIndex = 0;
     uint256 public depositIndex = 0;
+    mapping(address => bool) public rewardTokens;
     mapping(address => uint256[]) public claimedDeposits; // Maps recipient address to array of deposit.id
     // TO-DO: Remove claimedDeposits and deposits when a TokenDeposit is no longer active (TokenAmount == 0)
     //         to prevent the maps from growing very large.
 
-    //address public stakehouseUniverse = 0xC38ee0eCc213293757dC5a30Cf253D3f40726E4c; 
+    // stakehouseUniverse Goerli = 0xC38ee0eCc213293757dC5a30Cf253D3f40726E4c; 
+    // WETH Goerli: 0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6 
+    // BSN Goerli: 0x359599d4032D6540F3bE62E459861f742Ceb851f
+    // DETH Goerli: 0x506C2B850D519065a4005b04b9ceed946A64CB6F
+    // SETH Goerli: 0x14Ab8194a1cB89D941cc5159873aFDaC3C45094d
+    // USDC Goerli: 0x15fB74F4d828C85a1b71Ac1A83f31E1D2B8Beb73
     address public stakehouseUniverse;
     uint256 public bribeLength = 31536000; // 365 days
 
     address public feeRecipient;
     uint256 public feePerClaimDivisor = 0;
-    uint256 public feePerClaimDivisorMin = 5; // divisor of 5 means highest possible fee is 20%
+    uint256 public feePerClaimDivisorMin = 5; // divisor of 5 means highest possible fee is 20% (100/5=20)
     address public owner;
 
-    constructor(address _stakehouseUniverse, address _feeRecipient, uint256 _feePerClaimDivisor) public {
+    constructor(address _stakehouseUniverse, address _feeRecipient, uint256 _feePerClaimDivisor, address[] memory rewardTokensAllowed) public {
+        _status = _NOT_ENTERED;
         stakehouseUniverse = _stakehouseUniverse;
         require(_feePerClaimDivisor > feePerClaimDivisorMin, "fee is too high");
         feeRecipient = _feeRecipient;
         feePerClaimDivisor = _feePerClaimDivisor;
         owner = msg.sender;
+        for(uint256 x = 0; x<rewardTokensAllowed.length;x++){
+            rewardTokens[rewardTokensAllowed[x]] = true;
+        }
+        
         emit VaultCreated(msg.sender, block.timestamp);
         emit FeeRecipientUpdated(msg.sender, _feeRecipient, address(0), block.timestamp);
         emit FeePerClaimUpdated(msg.sender, _feePerClaimDivisor, 0, block.timestamp);
@@ -59,28 +84,33 @@ contract BribeVault{
         _;
     }
 
+    function setAllowToken(address token, bool allowed) external onlyOwner {
+        require(rewardTokens[token] != allowed, "reward token already configured");
+        rewardTokens[token] = allowed;
+    }
+
     function setFeeRecipient(address newFeeRecipient) public onlyOwner {
         require(newFeeRecipient != feeRecipient, "same recipient");
         emit FeeRecipientUpdated(msg.sender, newFeeRecipient, feeRecipient, block.timestamp);
         feeRecipient = newFeeRecipient;
     }
 
-    function setFeePerClaim(uint256 newFeePerClaim) public onlyOwner {
+    function setFeePerClaim(uint256 newFeePerClaim) external onlyOwner {
         require(newFeePerClaim >= feePerClaimDivisor, "new fee must be lower than existing fee");
         require(newFeePerClaim >= feePerClaimDivisorMin, "new fee is too high");
         emit FeePerClaimUpdated(msg.sender, newFeePerClaim, feePerClaimDivisor, block.timestamp);
         feePerClaimDivisor = newFeePerClaim;
     }
 
-    function depositBribe(address bribeToken, uint256 bribeAmount, bytes calldata validatorBLSKey) public {
+    function depositBribe(address bribeToken, uint256 bribeAmount, bytes calldata validatorBLSKey) public nonReentrant {
         uint256 sizeOfBribeTokenContract;
         assembly {
             sizeOfBribeTokenContract := extcodesize(bribeToken)
         }
+        require(rewardTokens[bribeToken], "reward token not allowed");
         require(validatorBLSKey.length == 48, "Invalid BLS key");
         require(msg.sender == getNodeRunnerAddress(validatorBLSKey), "only node runner may deposit bribes");
         require(sizeOfBribeTokenContract > 0, "bribe token is invalid");
-        //require(tokenToETHRatio>0, "Bribe token/ETH ratio must be non-zero");
         require(bribeAmount>0, "Bribe amount must be non-zero");
         bool existingBribe = false;
         bool existingKey = false;
@@ -102,7 +132,6 @@ contract BribeVault{
             ERC20(deposit.token).transferFrom(msg.sender, address(this), bribeAmount);
             deposit.tokenAmount = deposit.tokenAmount + bribeAmount;
             deposit.tokenToEthRatio = deposit.tokenAmount / 28;
-
             deposits[validatorBLSKey] = deposit;
             emit BribeToppedUp(deposit.id, msg.sender, block.timestamp);
         }else{ // new Validator bribe
@@ -154,7 +183,7 @@ contract BribeVault{
         return abi.decode(nodeRunnerBytes, (address));
     }
 
-    function withdrawRemainingBribe(bytes calldata validatorBLSKey) public {
+    function withdrawRemainingBribe(bytes calldata validatorBLSKey) public nonReentrant {
         TokenDeposit storage deposit = deposits[validatorBLSKey];
         require(deposit.expiration < block.timestamp, "bribe not expired");
         require(deposit.tokenAmount > 0, "bribe is empty");
@@ -221,15 +250,6 @@ contract BribeVault{
         uint256 ethAmount = ethDepositsBySnapshot(validatorBLSKey, msg.sender);
 
         return (deposit.tokenToEthRatio * ethAmount)/(10**18);
-        // if (block.timestamp >= deposit.expiration) {
-        //     return ((deposit.tokenToEthRatio * ethAmount)/(10**18),(deposit.tokenToEthRatio * ethAmount)/(10**18));
-        // } else {
-        //     uint256 bribeStart = deposit.expiration - bribeLength; // tested and working
-        //     uint256 secondsSinceBribeStarted = (block.timestamp - bribeStart);
-        //     uint256 rewardsPerSecond = ethAmount / bribeLength;
-        //     uint256 scaledEthAmount = rewardsPerSecond * secondsSinceBribeStarted;
-        //     return ((deposit.tokenToEthRatio * scaledEthAmount)/(10**18), (deposit.tokenToEthRatio * ethAmount)/(10**18));
-        // }
     }
 
     function hasClaimed(bytes calldata validatorBLSKey, address recipient) public view returns (bool){
@@ -245,11 +265,11 @@ contract BribeVault{
         return false;
     }
 
-    function claim(bytes calldata validatorBLSKey) public {
+    function claim(bytes calldata validatorBLSKey) public nonReentrant {
         uint256 currentTimestamp = block.timestamp;
         // TO-DO: Refactor following lines (already in hasClaimed() which needs to remain public view for dApp
         uint256[] storage depositsClaimed = claimedDeposits[msg.sender];
-        TokenDeposit storage deposit = deposits[validatorBLSKey];        // tested and working
+        TokenDeposit storage deposit = deposits[validatorBLSKey];
         for (uint256 i = 0; i < depositsClaimed.length; i++) {
             require(depositsClaimed[i] != deposit.id, "already claimed");
         }
@@ -263,12 +283,12 @@ contract BribeVault{
             feeAmount = amount / feePerClaimDivisor;
         }
         require(amount>0,"nothing to claim");
-        require(deposit.tokenAmount >= amount, "insufficient bribe balance"); // tested and working
-        require(deposit.expiration > currentTimestamp, "bribe expired"); // ExpirationDate
-        deposit.tokenAmount = deposit.tokenAmount - amount;                // tested and working
-        deposits[validatorBLSKey] = deposit;                           // tested and working
+        require(deposit.tokenAmount >= amount, "insufficient bribe balance"); 
+        require(deposit.expiration > currentTimestamp, "bribe expired"); 
+        deposit.tokenAmount = deposit.tokenAmount - amount;
+        deposits[validatorBLSKey] = deposit; 
         claimedDeposits[msg.sender].push(deposit.id);
-        ERC20(deposit.token).transfer(msg.sender, amount - feeAmount); // tested and working
+        ERC20(deposit.token).transfer(msg.sender, amount - feeAmount); 
         emit BribeClaimed(deposit.id, msg.sender, block.timestamp);
         if(feeAmount > 0){
             ERC20(deposit.token).transfer(feeRecipient, feeAmount);
