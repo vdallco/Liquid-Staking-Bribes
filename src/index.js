@@ -9,7 +9,7 @@ const network = document.querySelector("select");
 
 const { Wizard } = require('@blockswaplab/lsd-wizard');
 
-BribeVault_NodeRunners_Goerli = '0xeC01dfbE79412b078521793df4415AD8b84EDB27'; // TO-DO: Update code to use Network switch to select Mainnet or testnet
+BribeVault_NodeRunners_Goerli = '0xd7BB3Ee6Cbec711c7D11864eF0A89A041ed65D69'; // TO-DO: Update code to use Network switch to select Mainnet or testnet
 BribeVault_NodeRunners_Mainnet = ''; 
 
 BribeVault_LSDNetworks_Goerli = '0xd4Ee6860a5aFdae5F375E4F8bacD381f75c2ADBA'
@@ -120,8 +120,8 @@ async function lpSnapshot(blsKey, snapshot){
 		submitSnapshotBtn = document.getElementById('submitSnapshotBtn');
 		cancelSnapshotBtn = document.getElementById('cancelSnapshotBtn');
 		loadingBar.style = 'display:none;'
-		submitSnapshotBtn.style = 'display:;'
-		cancelSnapshotBtn.style = 'display:;'
+		submitSnapshotBtn.style = 'display:;';
+		cancelSnapshotBtn.style = 'display:;';
 		
 		snapshotModal = document.getElementById('confirmSnapshot');
 		const dialogInstance = M.Modal.init(snapshotModal);
@@ -136,8 +136,8 @@ async function lpSnapshot(blsKey, snapshot){
 		submitSnapshotBtn = document.getElementById('submitSnapshotBtn');
 		cancelSnapshotBtn = document.getElementById('cancelSnapshotBtn');
 		loadingBar.style = 'display:none;'
-		submitSnapshotBtn.style = 'display:;'
-		cancelSnapshotBtn.style = 'display:;'
+		submitSnapshotBtn.style = 'display:;';
+		cancelSnapshotBtn.style = 'display:;';
 		return 0;
 	}
 }
@@ -199,7 +199,7 @@ async function setLPSnapshot(bls){
 			cancelSnapshotBtn.style = 'display:none;';
 			
 			loadingBar = document.getElementById('snapshotLoading');
-			loadingBar.style = 'display:;'
+			loadingBar.style = 'display:;';
 			
 			(async () => {
 				await lpSnapshot(bls, snapshot);
@@ -785,7 +785,7 @@ async function approveTokenSpend(token, amount){
 	var approveBtn = document.getElementById('approveBSN');
 	approveBtn.style = 'display:none;'
 	var loadingBar = document.getElementById('depositLoading');
-	loadingBar.style = 'display:;'
+	loadingBar.style = 'display:;';
 	
 	await provider.send("eth_requestAccounts", []);
 	const signer = provider.getSigner();
@@ -853,7 +853,7 @@ async function approveTokenSpend(token, amount){
 	  loadingBar.style = 'display:none;'
 	} catch (error) {
 	  approveBtn = document.getElementById('approveBSN');
-	  approveBtn.style = 'display:;'
+	  approveBtn.style = 'display:;';
 	  console.log("Transaction failed:", error);
 	  M.toast({html: 'Token Approval failed', displayLength:10000, classes: 'rounded red', });
 	  loadingBar.style = 'display:none;'
@@ -897,7 +897,7 @@ async function depositBribe(bribeToken, bribeAmountVal, blsKeyVal){
 	var depositBtn = document.getElementById('depositBSN');
 	depositBtn.style = 'display:none;'
 	var loadingBar = document.getElementById('depositLoading');
-	loadingBar.style = 'display:;'
+	loadingBar.style = 'display:;';
 	
 	await provider.send("eth_requestAccounts", []);
 	const signer = provider.getSigner();
@@ -929,11 +929,11 @@ async function depositBribe(bribeToken, bribeAmountVal, blsKeyVal){
 	
 	const gasPrice = provider.getGasPrice().then(function(d){
 		console.log("Gas price: " + d.toString());
-		g = 12500000; // debugging. Successful deposit takes 204k gas
+		g = 22500000; // debugging. Successful deposit takes 204k gas
 		console.log({gasLimit:g.toString(),gasPrice:d.toString()});
 		(async () => {
 			try {
-				var depositTx = await BribeVaultContract.depositBribe(bribeToken, bribeAmountVal, blsKeyVal);
+				var depositTx = await BribeVaultContract.depositBribe(bribeToken, bribeAmountVal, blsKeyVal, {gasLimit: d});
 				console.log(depositTx);
 				const txReceipt = await depositTx.wait();
 				console.log("Transaction successful:", txReceipt);
@@ -1040,7 +1040,7 @@ document.addEventListener('DOMContentLoaded', function() {
 		tokenPerEth = document.getElementById('tokenAmountDeposit');
 		tokenPerEth.addEventListener('input',function(d){
 			if(this.value.includes('.') || this.value.includes('-')){
-				this.value = this.value.replace('.','').replace('-','');
+				this.value = this.value.replace('-','');
 			}
 			if(this.value == undefined){
 				this.value = 0;
