@@ -479,8 +479,10 @@ async function addBribeToList(bribeToken, bribeAmountBsn, bribeRatio, validatorB
 	
 	const result = await wizard.helper.getValidatorDetails(validatorBLS);
 	var lsdNetworkTicker = "???"
+	var lsdNetworkStatus = ""
 	if(result!=undefined){
 		lsdNetworkTicker = result.lsd;
+		lsdNetworkStatus = result.status; // only show Snapshot button iff MINTED_DERIVATIVES 
 	}
 	
 	bribesList = document.getElementById('bribesList');
@@ -543,9 +545,19 @@ async function addBribeToList(bribeToken, bribeAmountBsn, bribeRatio, validatorB
 			'" class="secondary-content col s2 btn btn-large" style="background-color:#78A7FF;border-radius: 15px;min-width:150px;margin-top:14px;">'+
 			'Claim ' + compactNumber(claimableAmtScaled, 3) + '</a>';
 		}else if(claimableAmt<0){ // LP snapshot not taken
-			claimBtnHtml = '<a href="#!" id="lpSnapshot'+validatorBLS+
-			'" class="secondary-content col s2 btn btn-large tooltipped" data-position="bottom" data-tooltip="LP balances must be recorded in a snapshot on-chain before rewards may be claimed" style="background-color:#78A7FF;border-radius: 15px;min-width:150px;margin-top:14px;">'+
-			'Snapshot</a>';
+			if(lsdNetworkStatus == "MINTED_DERIVATIVES"){ // validator is staked and derivatives minted, show Snapshot btn
+				claimBtnHtml = '<a href="#!" id="lpSnapshot'+validatorBLS+
+				'" class="secondary-content col s2 btn btn-large tooltipped" data-position="bottom" data-tooltip="LP balances must be recorded in a snapshot on-chain before rewards may be claimed" style="background-color:#78A7FF;border-radius: 15px;min-width:150px;margin-top:14px;">'+
+				'Snapshot</a>';
+			}else if (lsdNetworkStatus == "WAITING_FOR_ETH"){ // validator has not yet staked
+				claimBtnHtml = '<a href="#!" disabled class="secondary-content col s2 btn btn-large tooltipped" data-position="bottom" data-tooltip="The validator has not yet been staked" style="background-color:#78A7FF;border-radius: 15px;min-width:150px;margin-top:14px;">'+
+				'Waiting for ETH</a>'
+			}else if (lsdNetworkStatus == "STAKED"){ // validator has not yet minted derivatives
+				claimBtnHtml = '<a href="#!" disabled class="secondary-content col s2 btn btn-large tooltipped" data-position="bottom" data-tooltip="The validator has not yet minted derivatives" style="background-color:#78A7FF;border-radius: 15px;min-width:150px;margin-top:14px;">'+
+				'Waiting on mint</a>'
+			}
+		}else{
+			// user is not eligible to claim. Perhaps display the LP Snapshot
 		}
 	}
 	
@@ -1083,7 +1095,7 @@ document.addEventListener('DOMContentLoaded', function() {
 				
 				var multiplier = new Decimal(10**tokenDecimals);
 				var resultAmt = amountDecimal.times(multiplier);
-				var resultAmtFixed = resultAmt.toFixed();
+				var resultAmtFixed = Math.round(resultAmt.toFixed());
 				
 				console.log("Token amount res: " + resultAmt.toString());
 				console.log("Token amount res fix: " + resultAmtFixed.toString());
