@@ -50,12 +50,15 @@ contract BribeVault{
     //         to prevent the maps from growing very large.
 
     // stakehouseUniverse Goerli = 0xC38ee0eCc213293757dC5a30Cf253D3f40726E4c; 
+    // accountManager 0x952295078a226bf40c8cb076c16e0e7229f77b28
     // WETH Goerli: 0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6 
     // BSN Goerli: 0x359599d4032D6540F3bE62E459861f742Ceb851f
     // DETH Goerli: 0x506C2B850D519065a4005b04b9ceed946A64CB6F
     // SETH Goerli: 0x14Ab8194a1cB89D941cc5159873aFDaC3C45094d
     // USDC Goerli: 0x15fB74F4d828C85a1b71Ac1A83f31E1D2B8Beb73
+    // ["0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6","0x359599d4032D6540F3bE62E459861f742Ceb851f","0x506C2B850D519065a4005b04b9ceed946A64CB6F","0x14Ab8194a1cB89D941cc5159873aFDaC3C45094d","0x15fB74F4d828C85a1b71Ac1A83f31E1D2B8Beb73"]
     address public stakehouseUniverse;
+    address public accountManager;
     uint256 public bribeLength = 31536000; // 365 days
 
     address public feeRecipient;
@@ -63,9 +66,10 @@ contract BribeVault{
     uint256 public feePerClaimDivisorMin = 5; // divisor of 5 means highest possible fee is 20% (100/5=20)
     address public owner;
 
-    constructor(address _stakehouseUniverse, address _feeRecipient, uint256 _feePerClaimDivisor, address[] memory rewardTokensAllowed) public {
+    constructor(address _stakehouseUniverse, address _accountManager, address _feeRecipient, uint256 _feePerClaimDivisor, address[] memory rewardTokensAllowed) public {
         _status = _NOT_ENTERED;
         stakehouseUniverse = _stakehouseUniverse;
+        accountManager = _accountManager;
         require(_feePerClaimDivisor > feePerClaimDivisorMin, "fee is too high");
         feeRecipient = _feeRecipient;
         feePerClaimDivisor = _feePerClaimDivisor;
@@ -171,15 +175,42 @@ contract BribeVault{
         deposit.snapshot = newSnapshot;
     }
 
+    struct Account {
+        address depositor; /// ECDSA address executing the deposit
+        bytes blsSignature; /// BLS signature over the SSZ "DepositMessage" container
+        uint256 depositBlock; /// Block During which the deposit to EF Deposit Contract was completed
+    }
+
+    function getSmartWallet(bytes calldata validatorBLSKey) public view returns (address){
+        (, bytes memory data) = accountManager.staticcall(abi.encodeWithSignature("getAccountByPublicKey(bytes)", validatorBLSKey));
+        (Account memory applicant) = abi.decode(data, (Account));
+        return applicant.depositor;
+    }
+
+    function getLiquidStakingManager(bytes calldata validatorBLSKey) public view returns (address){
+        (, bytes memory data) = accountManager.staticcall(abi.encodeWithSignature("getAccountByPublicKey(bytes)", validatorBLSKey));
+        (Account memory applicant) = abi.decode(data, (Account));
+
+        (, bytes memory liquidStakingManagerBytes) = applicant.depositor.staticcall(abi.encodeWithSignature("owner()"));
+        address liquidStakingManager = abi.decode(liquidStakingManagerBytes, (address));
+        return liquidStakingManager;
+    }
+
     function getNodeRunnerAddress(bytes calldata validatorBLSKey) public view returns (address){
+        // WARNING: calling stakeHouseKnotInfo(bytes) on StakehouseUniverse only returns LiquidStakingManager for
+        //  validators which are already staked and/or minted derivatives. Instead, call getAccountByPublicKey() on 
+        //  AccountManager
+        (, bytes memory data) = accountManager.staticcall(abi.encodeWithSignature("getAccountByPublicKey(bytes)", validatorBLSKey));
+        (Account memory applicant) = abi.decode(data, (Account));
+
         // Call stakeHouseKnotInfo(bls) on StakehouseUniverse contract
-        (, bytes memory data) = stakehouseUniverse.staticcall(abi.encodeWithSignature("stakeHouseKnotInfo(bytes)", validatorBLSKey));
+        //(, bytes memory data) = stakehouseUniverse.staticcall(abi.encodeWithSignature("stakeHouseKnotInfo(bytes)", validatorBLSKey));
         // Take the 3rd item of the above result (applicant or smart wallet). It's owner() is the LiquidStakingManager
-        (, , address applicant, , , ) = abi.decode(data, (address, address, address, uint256, uint256, bool));
-        (, bytes memory liquidStakingManagerBytes) = applicant.staticcall(abi.encodeWithSignature("owner()"));
+        //(, , address applicant, , , ) = abi.decode(data, (address, address, address, uint256, uint256, bool));
+        (, bytes memory liquidStakingManagerBytes) = applicant.depositor.staticcall(abi.encodeWithSignature("owner()"));
         address liquidStakingManager = abi.decode(liquidStakingManagerBytes, (address));
         // Call nodeRunnerOfSmartWallet(smartWallet) on the LiquidStakingManager to get the node runner depositor address
-        (, bytes memory nodeRunnerBytes) = liquidStakingManager.staticcall(abi.encodeWithSignature("nodeRunnerOfSmartWallet(address)",applicant));
+        (, bytes memory nodeRunnerBytes) = liquidStakingManager.staticcall(abi.encodeWithSignature("nodeRunnerOfSmartWallet(address)",applicant.depositor));
         return abi.decode(nodeRunnerBytes, (address));
     }
 
