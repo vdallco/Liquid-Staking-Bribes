@@ -37,10 +37,20 @@ browserify index.js -p esmify > bundle.js
 # Deployment
 The bribe vaults may be deployed via Remix IDE.
 
+## Mainnet
+
+
+| Contract    | Address     |
+| ----------- | ----------- |
+| NodeRunnerBribeVault        | 0x093e0d68c96aFD4e6DebC3cF802113E653A879cc  |
+| LSDNetworkownerBribeVault   |   |
+
+## Goerli
+
 *Goerli testnet contract deployments are subject to change:*
 
 | Contract    | Address     |
 | ----------- | ----------- |
-| NodeRunnerBribeVault        | 0x2d3Ec4Caf621B17105A981FBaED604C1Fe635120  |
+| NodeRunnerBribeVault        | 0xd7BB3Ee6Cbec711c7D11864eF0A89A041ed65D69  |
 | LSDNetworkownerBribeVault   | 0xd4Ee6860a5aFdae5F375E4F8bacD381f75c2ADBA  |
 
