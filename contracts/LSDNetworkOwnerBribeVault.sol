@@ -26,6 +26,10 @@ contract NodeRunnerBribeVault{
     mapping(bytes => uint256[]) public claimedDeposits; // Maps Validator BLS to array of deposit.id
 
     //address public stakehouseUniverse = 0xC38ee0eCc213293757dC5a30Cf253D3f40726E4c; // TO-DO: Replace with mainnet. This is Goerli Stakehouse Universe 
+    /// Hey you should check out and use https://www.npmjs.com/package/@blockswaplab/stakehouse-solidity-api and then you can call things like getStakeHouseUniverse() wherever you need and based on the network it will give you the correct contracts
+    /// Also, feel free to check out https://github.com/stakehouse-dev/lsd-contracts/blob/main/contracts/liquid-staking/GiantMevAndFeesPool.sol - tokens can be transferred and it handles claiming rewards. 
+    /// You can also wrap LP tokens from LSD networks as another option and use ERC20 snapshotting to snapshot balances: https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/structs/Checkpoints.sol
+
     address public stakehouseUniverse;
     uint256 public bribeLength = 31536000; // 365 days
 
