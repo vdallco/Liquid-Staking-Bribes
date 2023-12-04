@@ -12,7 +12,7 @@ const { Wizard } = require('@blockswaplab/lsd-wizard');
 BribeVault_NodeRunners_Goerli = '0xd7BB3Ee6Cbec711c7D11864eF0A89A041ed65D69'; // TO-DO: Update code to use Network switch to select Mainnet or testnet
 BribeVault_NodeRunners_Mainnet = '0x093e0d68c96aFD4e6DebC3cF802113E653A879cc'; 
 
-BribeVault_LSDNetworks_Goerli = '0xd4Ee6860a5aFdae5F375E4F8bacD381f75c2ADBA'
+BribeVault_LSDNetworks_Goerli = '0x221A671dDD2Eb1101017F9795524827b8E874A13'
 BribeVault_LSDNetworks_Mainnet = ''
 
 GOERLI_INFURA = 'https://intensive-silent-violet.ethereum-goerli.discover.quiknode.pro/f7e4fa1b9ea3a3898dc4b6b0ba4a2eeb14e98e14/';
@@ -67,6 +67,29 @@ var GRAPHQL_LPTOKENS_BY_BLS = `
 	}
 `;
 
+var GRAPHQL_LSM_BY_TICKER = `
+	query GetLiquidStakingManagerByLSDNTicker {
+	  liquidStakingNetworks(where: {ticker: "%NETWORK%"}) {
+		ticker
+		liquidStakingManager
+	  }
+	}
+`;
+
+var GRAPHQL_BLS_KEYS_BY_LSDN_AND_NODERUNNER = `
+	query GetBLSKeysByLSDNTickerAndNodeRunnerAddress {
+	  smartWallets(
+		where: {liquidStakingNetwork_: {ticker: "%NETWORK%"}, nodeRunner_: {id: "%NODERUNNER%"}}
+	  ) {
+		nodeRunner {
+		  validators {
+			id
+		  }
+		}
+	  }
+	}
+`;
+
 const verifiedTokens_Goerli = ['0x359599d4032D6540F3bE62E459861f742Ceb851f', // BSN
 							   '0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6', // WETH
 							   '0x15fB74F4d828C85a1b71Ac1A83f31E1D2B8Beb73'  // USDC
@@ -86,6 +109,16 @@ function getNodeRunnerBribeVaultAddress(networkID){
 		return BribeVault_NodeRunners_Goerli;
 	}else if(networkID == 1){
 		return BribeVault_NodeRunners_Mainnet;
+	}else{
+		return false; // TO-DO: raise error here instead
+	}
+}
+
+function getLSDNBribeVaultAddress(networkID){
+	if(networkID == 5){
+		return BribeVault_LSDNetworks_Goerli;
+	}else if(networkID == 1){
+		return BribeVault_LSDNetworks_Mainnet;
 	}else{
 		return false; // TO-DO: raise error here instead
 	}
@@ -173,6 +206,51 @@ async function getLPTokensByBls(bls){
 				'Content-Type': 'application/json'
 			},
 			body: JSON.stringify( {query: GRAPHQL_LPTOKENS_BY_BLS.replace('%BLS%', bls)} )
+		});
+	respJson = await response.json();
+	return respJson;
+}
+
+async function getLiquidStakingManagerByLSDNTicker(networkTicker){
+	chainId = await getConnectedNetworkId();
+	graphQLURL = chainId == 1 ? MAINNET_GRAPHQL : GOERLI_GRAPHQL;
+
+	response = await fetch(graphQLURL, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify( {query: GRAPHQL_LSM_BY_TICKER.replace('%NETWORK%', networkTicker)} )
+		});
+	respJson = await response.json();
+	return respJson;
+}
+
+async function getBLSKeysByLSDNTickerAndNodeRunnerAddress(networkTicker, nodeRunner){
+	chainId = await getConnectedNetworkId();
+	graphQLURL = chainId == 1 ? MAINNET_GRAPHQL : GOERLI_GRAPHQL;
+
+	response = await fetch(graphQLURL, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify( {query: GRAPHQL_BLS_KEYS_BY_LSDN_AND_NODERUNNER.replace('%NETWORK%', networkTicker).replace('%NODERUNNER%', nodeRunner)} )
+		});
+	respJson = await response.json();
+	return respJson;
+}
+
+async function getNodeRunnersByNetwork(network){
+	chainId = await getConnectedNetworkId();
+	graphQLURL = chainId == 1 ? MAINNET_GRAPHQL : GOERLI_GRAPHQL;
+
+	response = await fetch(graphQLURL, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify( {query: GRAPHQL_NODERUNNERS_BY_NETWORK.replace('%NETWORK%', network)} )
 		});
 	respJson = await response.json();
 	return respJson;
@@ -433,7 +511,7 @@ async function claimable(blsKey){
 	}
 }
 
-async function claimableNodeRunner(lsdNetworkTicker){
+async function claimableLSDN(blsKey){
 	await provider.send("eth_requestAccounts", []);
 	const signer = provider.getSigner();
 	const contractABI = [{
@@ -457,13 +535,13 @@ async function claimableNodeRunner(lsdNetworkTicker){
 	}];
 
 	const chainId = await getConnectedNetworkId();
-	const BribeVaultAddress = getNodeRunnerBribeVaultAddress(chainId);
+	const BribeVaultAddress = getLSDNBribeVaultAddress(chainId);
 	const BribeVaultContract = new ethers.Contract(BribeVaultAddress, contractABI, signer);
 	
-	console.log("Checking claimable for LSD network " + lsdNetworkTicker);
+	console.log("Checking claimable for LSD network " + blsKey);
 	
 	try{
-		const claimableResult = await BribeVaultContract.claimable(lsdNetworkTicker);
+		const claimableResult = await BribeVaultContract.claimable(blsKey);
 	
 		console.log("claimable result");
 		console.log(claimableResult.toString());
@@ -560,13 +638,15 @@ async function hasClaimedNodeRunner(lsdTicker, validatorBLS){
 		}
 	];
 	
-	const BribeVault_NodeRunners_GoerliContract = new ethers.Contract(BribeVault_LSDNetworks_Goerli, contractABI, signer);
-	
+	const chainId = await getConnectedNetworkId();
+	const BribeVaultAddress = getNodeRunnerBribeVaultAddress(chainId);
+	const BribeVaultContract = new ethers.Contract(BribeVaultAddress, contractABI, signer);
+
 	console.log("Checking hasClaimed for LSD ticker " + lsdTicker + " and BLS key " + validatorBLS);
 	
 	try{
 		const encodedData = ethers.utils.arrayify(validatorBLS);
-		const hasClaimedResult = await BribeVault_NodeRunners_GoerliContract.hasClaimed(lsdTicker, encodedData);
+		const hasClaimedResult = await BribeVaultContract.hasClaimed(lsdTicker, encodedData);
 	
 		console.log("hasClaimed result");
 		console.log(hasClaimedResult.toString());
@@ -605,14 +685,24 @@ async function addBribeToList(bribeToken, bribeAmountBsn, bribeRatio, validatorB
 		signerOrProvider: signer,
 	});
 	
-	const claimableAmt = await claimable(validatorBLS);
+	var claimableAmt;
+	if(bribeType=="nodeRunner"){
+		claimableAmt = await claimable(validatorBLS);
+	}else{
+		claimableAmt = await claimableLSDN(validatorBLS);
+	}
 	
-	const result = await wizard.helper.getValidatorDetails(validatorBLS);
 	var lsdNetworkTicker = "???"
 	var lsdNetworkStatus = ""
-	if(result!=undefined){
-		lsdNetworkTicker = result.lsd;
-		lsdNetworkStatus = result.status; // only show Snapshot button iff MINTED_DERIVATIVES 
+	
+	if(bribeType=="nodeRunner"){
+		const result = await wizard.helper.getValidatorDetails(validatorBLS);
+		if(result!=undefined){
+			lsdNetworkTicker = result.lsd;
+			lsdNetworkStatus = result.status; // only show Snapshot button iff MINTED_DERIVATIVES 
+		}
+	}else{
+		lsdNetworkTicker = networkName;
 	}
 	
 	bribesList = document.getElementById('bribesList');
@@ -666,17 +756,18 @@ async function addBribeToList(bribeToken, bribeAmountBsn, bribeRatio, validatorB
 	
 	claimBtnHtml = "";
 	if(disabled){
-		claimBtnHtml = '<a href="#!" id="claim'+validatorBLS+'" class="secondary-content col s2 btn btn-large disabled" style="border-radius: 15px;">Claimed</a>';
+		claimBtnHtml = '<a href="#!" id="claim'+validatorBLSorNetworkName+'" class="secondary-content col s2 btn btn-large disabled" style="border-radius: 15px;">Claimed</a>';
+		
 	}else{
 		if(claimableAmt>0){
 			const claimableAmount = new Decimal(claimableAmt.toString());
 			const claimableAmtScaled = claimableAmount.div(divisor);
-			claimBtnHtml = '<a href="#!" id="claim'+validatorBLS+
+			claimBtnHtml = '<a href="#!" id="claim'+validatorBLSorNetworkName+
 			'" class="secondary-content col s2 btn btn-large" style="background-color:#78A7FF;border-radius: 15px;min-width:150px;margin-top:14px;">'+
 			'Claim ' + compactNumber(claimableAmtScaled, 3) + '</a>';
 		}else if(claimableAmt<0){ // LP snapshot not taken
 			if(lsdNetworkStatus == "MINTED_DERIVATIVES"){ // validator is staked and derivatives minted, show Snapshot btn
-				claimBtnHtml = '<a href="#!" id="lpSnapshot'+validatorBLS+
+				claimBtnHtml = '<a href="#!" id="lpSnapshot'+validatorBLSorNetworkName+
 				'" class="secondary-content col s2 btn btn-large tooltipped" data-position="bottom" data-tooltip="LP balances must be recorded in a snapshot on-chain before rewards may be claimed" style="background-color:#78A7FF;border-radius: 15px;min-width:150px;margin-top:14px;">'+
 				'Snapshot</a>';
 			}else if (lsdNetworkStatus == "WAITING_FOR_ETH"){ // validator has not yet staked
@@ -692,7 +783,7 @@ async function addBribeToList(bribeToken, bribeAmountBsn, bribeRatio, validatorB
 	}
 	
 	if(bribeExpired){
-		claimBtnHtml = '<a href="#!" id="withdraw'+validatorBLS+'" class="secondary-content col s2 btn btn-large" style="background-color:#78A7FF;border-radius: 15px;">Withdraw</a>';
+		claimBtnHtml = '<a href="#!" id="withdraw'+validatorBLSorNetworkName+'" class="secondary-content col s2 btn btn-large" style="background-color:#78A7FF;border-radius: 15px;">Withdraw</a>';
 	}
 	
 	var loadingBar = '<div class="progress" id="claimLoading" style="display:none;"><div class="indeterminate"></div></div>';
@@ -715,28 +806,39 @@ async function addBribeToList(bribeToken, bribeAmountBsn, bribeRatio, validatorB
 	
 	var bribeTokenLink = '<a href="' + getEtherscanLink() + 'token/' + bribeTokenContract.address + '" target="_">' + bribeTokenSymbol + verifiedIcon + '</a>';
 	
-	li.innerHTML = '<div class="row" style="display: flex;justify-content:space-between;"><h5 class="title col s5 right-align">' + compactNumber(rewardsRatioScaled) + ' ' + bribeTokenLink + '</h5> <h6 class="col s5" style="padding-top:7px;margin-left:0px;"> per 1 ETH</h5>' + expirationHtml + '</div>' + 
+	if(bribeType=="nodeRunner"){
+		li.innerHTML = '<div class="row" style="display: flex;justify-content:space-between;"><h5 class="title col s5 right-align">' + compactNumber(rewardsRatioScaled) + ' ' + bribeTokenLink + '</h5> <h6 class="col s5" style="padding-top:7px;margin-left:0px;"> per 1 ETH</h5>' + expirationHtml + '</div>' + 
 				   '<span class="row" style="display: flex;justify-content:space-between;"><p class="col s9" style="margin-left:16px;">' + compactNumber(bribeAmtScaled) + 
 				   ' remaining ' + bribeTokenSymbol + '<br>for depositors of ' + compactBLSKeyLink(validatorBLS) + ' <span class="chip">' + lsdNetworkTicker + '</span></p>' + 
 				    claimBtnHtml + '</span>';
+	}else{
+		li.innerHTML = '<div class="row" style="display: flex;justify-content:space-between;"><h5 class="title col s5 right-align">' + compactNumber(rewardsRatioScaled) + ' ' + bribeTokenLink + '</h5> <h6 class="col s5" style="padding-top:7px;margin-left:0px;"> per validator</h5>' + expirationHtml + '</div>' + 
+				   '<span class="row" style="display: flex;justify-content:space-between;"><p class="col s9" style="margin-left:16px;">' + compactNumber(bribeAmtScaled) + 
+				   ' remaining ' + bribeTokenSymbol + '<br>for node runners in ' + ' <span class="chip">' + lsdNetworkTicker + '</span></p>' + 
+				    claimBtnHtml + '</span>';
+	}
 	li.style = 'background-color:#424242;';
 	bribesList.appendChild(li);
 	
 	var elems = document.querySelectorAll('.tooltipped');
 	var instances = M.Tooltip.init(elems, undefined);
 	
-	var withdrawBtn = document.getElementById('withdraw'+validatorBLS);
+	var withdrawBtn = document.getElementById('withdraw'+validatorBLSorNetworkName);
 	
 	if(withdrawBtn != undefined){
 		withdrawBtn.addEventListener('click', function() { 
-			var bls = this.id.split('withdraw')[1];
-			console.log("Withdrawing for " + bls);
+			var blsOrNetwork = this.id.split('withdraw')[1];
+			console.log("Withdrawing for " + blsOrNetwork);
 			var m = document.getElementById('confirmWithdrawal');
 			var withdrawAmt = document.getElementById('withdrawBsnAmount');
-			var withdrawBls = document.getElementById('withdrawBLS');
+			var withdrawBls = document.getElementById('withdrawBLSorNetwork');
 			var withdrawAddr = document.getElementById('withdrawAddr');
 			
-			withdrawBls.innerHTML = compactBLSKeyLink(bls);
+			if(bribeType=="nodeRunner"){
+				withdrawBls.innerHTML = compactBLSKeyLink(blsOrNetwork);
+			}else{
+				withdrawBls.innerHTML = blsOrNetwork;
+			}
 			const dialogInstance = M.Modal.init(m);
 			dialogInstance.open();
 		});
@@ -755,13 +857,13 @@ async function addBribeToList(bribeToken, bribeAmountBsn, bribeRatio, validatorB
 	}
 	
 	
-	claimBtn = document.getElementById('claim'+validatorBLS);
+	claimBtn = document.getElementById('claim'+validatorBLSorNetworkName);
 	
 	if(claimBtn != undefined){
 		claimBtn.addEventListener('click', function() { 
 			var goerli_http = new ethers.providers.JsonRpcProvider(GOERLI_INFURA);
-			var bls = this.id.split('claim')[1];
-			
+			var blsOrNetwork = this.id.split('claim')[1];
+
 			const contractABI = [
 				{
 					"inputs": [
@@ -776,8 +878,29 @@ async function addBribeToList(bribeToken, bribeAmountBsn, bribeRatio, validatorB
 					"stateMutability": "nonpayable",
 					"type": "function"
 				}];
-		
-			const encodedData = ethers.utils.arrayify(bls);
+
+			
+			
+			var bribeType = "";
+
+			var blsKey = ""
+			if (blsOrNetwork.length > 6){
+				bribeType = "validator";
+				blsKey = blsOrNetwork;
+			}else{
+				bribeType = "lsdn";
+
+				var blsKeys = getBLSKeysByLSDNTickerAndNodeRunnerAddress(blsOrNetwork, signer.getAddress());
+				// TO-DO: Get first eligible BLS key for Signer
+				for (var x=0; x<blsKeys.data.smartWallets.nodeRunner.validators.length; x++){
+					var claimable = claimableLSDN(blsKeys.data.smartWallets.nodeRunner.validators[x]);
+					if (claimable > 0){
+						blsKey = blsKeys.data.smartWallets.nodeRunner.validators[x];
+					}
+				}
+			}
+			
+			const encodedData = ethers.utils.arrayify(blsKey);
 			
 			(async () => {
 				const chainId = await getConnectedNetworkId();
@@ -884,11 +1007,102 @@ async function checkBribes(){
 		"type": "function"
 	}
 	];
+
+	const lsdn_abi = [
+	{
+		"inputs": [],
+		"name": "bribeLength",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "depositIndex",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "string",
+				"name": "",
+				"type": "string"
+			}
+		],
+		"name": "deposits",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "id",
+				"type": "uint256"
+			},
+			{
+				"internalType": "address",
+				"name": "token",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "tokenAmount",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "tokenToValidatorRatio",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "expiration",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"name": "lsdNetworkNames",
+		"outputs": [
+			{
+				"internalType": "string",
+				"name": "",
+				"type": "string"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	}
+	];
 	const chainId = await getConnectedNetworkId();
 	const BribeVaultAddress = getNodeRunnerBribeVaultAddress(chainId);
 	const BribeVaultContract = new ethers.Contract(BribeVaultAddress, contractABI, signer);
 	
+	const LSDNBribeVaultAddress = getLSDNBribeVaultAddress(chainId);
+	const LSDNBribeVaultContract = new ethers.Contract(LSDNBribeVaultAddress, lsdn_abi, signer);
+	
 	const blsKeyIndex = await BribeVaultContract.blsDepositKeyIndex();
+	const lsdnBribeIndex = await LSDNBribeVaultContract.depositIndex();
 	
 	var bribes = []
 	var highestBribeRatio = 0;
@@ -906,16 +1120,63 @@ async function checkBribes(){
 			
 			var hasClaimedReward = await hasClaimed(validator, signerAddr);
 			console.log("Has claimed: " + hasClaimedReward.toString());
-			if(hasClaimedReward){
-				bribes[validator] = {'bribeToken':bribe[1],'bribeAmount':bribe[2], 'bribeRatio':bribe[3], 'expiration': bribe[4], 'claimed': true, 'bls':validator}
-			}else{
-				bribes[validator] = {'bribeToken':bribe[1],'bribeAmount':bribe[2], 'bribeRatio':bribe[3], 'expiration': bribe[4], 'claimed': false, 'bls':validator}
-			}
+			//if(hasClaimedReward){
+			//	bribes[validator] = {'bribeToken':bribe[1],'bribeAmount':bribe[2], 'bribeRatio':bribe[3], 'expiration': bribe[4], 'claimed': true, 'bls':validator}
+			//}else{
+			//	bribes[validator] = {'bribeToken':bribe[1],'bribeAmount':bribe[2], 'bribeRatio':bribe[3], 'expiration': bribe[4], 'claimed': false, 'bls':validator}
+			//}
+			bribes[validator] = {'bribeToken':bribe[1],'bribeAmount':bribe[2], 'bribeRatio':bribe[3], 'expiration': bribe[4], 'claimed': hasClaimedReward, 'blsOrNetwork':validator, 'bribeType': "nodeRunner"}
 		}catch(e){
 			console.log("No bribes for " + validator);
 			//console.log(e);
 		}
 	}
+
+	console.log("Processing LSDN bribes...");
+	for(n = 0; n<lsdnBribeIndex; n++){
+		const lsdNetworkName = await LSDNBribeVaultContract.lsdNetworkNames(n);
+		
+		try{
+			const bribe = await LSDNBribeVaultContract.deposits(lsdNetworkName);
+			const signerAddr = await signer.getAddress();
+			
+			if(bribe[0] == 0 && bribe[1] == 0 && bribe[2] == 0){
+				continue;
+			}
+			
+			// TO-DO: Get validator BLS (multiple) for Node Runner (signer) address? OR
+			//		  Or loop through each validator in the network and compare Node Runner to Signer
+			// 			USE getNodeRunnersByNetwork()
+			
+			var nodeRunners = await getNodeRunnersByNetwork(lsdNetworkName);
+
+			console.log(nodeRunners);
+
+			var hasAllClaimed = true
+			for(nodeRunnerIdx = 0; nodeRunnerIdx < nodeRunners.data.length; nodeRunnerIdx ++) {
+				if (nodeRunners.data[nodeRunnerIdx].id == signerAddr) {
+					for(nrValidatorIdx = 0; nrValidatorIdx < nodeRunners.data[nodeRunnerIdx].validators.count; nrValidatorIdx ++){
+						var hasClaimedReward = await hasClaimedNodeRunner(lsdNetworkName, nodeRunners.data[nodeRunnerIdx].validators[nrValidatorIdx].id);
+						if (!hasClaimedReward) {
+							hasAllClaimed = false // if even 1 validator the signer runs is claimable, don't show 'Claimed'
+						}
+					}
+				}
+			}
+
+			console.log("Has all validators (ran by signer) claimed: " + hasAllClaimed.toString());
+			//if(hasClaimedReward){
+			//	bribes[validator] = {'bribeToken':bribe[1],'bribeAmount':bribe[2], 'bribeRatio':bribe[3], 'expiration': bribe[4], 'claimed': true, 'bls':validator}
+			//}else{
+			//	bribes[validator] = {'bribeToken':bribe[1],'bribeAmount':bribe[2], 'bribeRatio':bribe[3], 'expiration': bribe[4], 'claimed': false, 'bls':validator}
+			//}
+			bribes[lsdNetworkName] = {'bribeToken':bribe[1],'bribeAmount':bribe[2], 'bribeRatio':bribe[3], 'expiration': bribe[4], 'claimed': hasAllClaimed, 'blsOrNetwork':lsdNetworkName, 'bribeType': "lsdNetwork"}
+		}catch(e){
+			console.log("No bribes for " + lsdNetworkName);
+			//console.log(e);
+		}
+	}
+
 
 	sortedBribes=[];
 
@@ -925,17 +1186,30 @@ async function checkBribes(){
 	Object.keys(bribes).forEach((k) => {
 		const bribe = bribes[k];
 		(async () => {
-			await addBribeToList(bribe.bribeToken, bribe.bribeAmount, bribe.bribeRatio, bribe.bls, bribe.expiration, bribe.claimed, "nodeRunner");
+			await addBribeToList(bribe.bribeToken, bribe.bribeAmount, bribe.bribeRatio, bribe.blsOrNetwork, bribe.expiration, bribe.claimed, bribe.bribeType);
 		})();
 	});
 	
 }
 
 
-async function approveTokenSpend(token, amount){
-	var approveBtn = document.getElementById('approveBSN');
+async function approveTokenSpend(token, amount, bribeType){
+	var approveBtnId;
+	var depositBtnId;
+	var loadingBarId;
+	if (bribeType == "validator"){
+		approveBtnId = 'approveBSN';
+		depositBtnId = 'depositBSN';
+		loadingBarId = 'depositLoading';
+	}else{
+		approveBtnId = 'approveBSNLsdNetwork';
+		depositBtnId = 'depositBSNLsdNetwork';
+		loadingBarId = 'depositLoadingLsdNetwork';
+	}
+
+	var approveBtn = document.getElementById(approveBtnId);
 	approveBtn.style = 'display:none;'
-	var loadingBar = document.getElementById('depositLoading');
+	var loadingBar = document.getElementById(loadingBarId);
 	loadingBar.style = 'display:;';
 	
 	await provider.send("eth_requestAccounts", []);
@@ -993,19 +1267,24 @@ async function approveTokenSpend(token, amount){
 	
 	try {
 	  const chainId = await getConnectedNetworkId();
-	  const BribeVaultAddress = getNodeRunnerBribeVaultAddress(chainId);
+	  var BribeVaultAddress;
+	  if(bribeType == "validator") {
+		BribeVaultAddress = getNodeRunnerBribeVaultAddress(chainId);
+	  }else{
+		BribeVaultAddress = getLSDNBribeVaultAddress(chainId);
+	  }
 	  const approval = await BribeTokenContract.approve(BribeVaultAddress, resultFixed);
 	  console.log(approval);
 	  const approvalReceipt = await approval.wait();
 	  console.log("Transaction successful:", approvalReceipt);
 	  M.toast({html: 'Token Approval succeeded!', displayLength:10000, classes: 'rounded green', });
-	  approveBtn = document.getElementById('approveBSN');
+	  approveBtn = document.getElementById(approveBtnId);
 	  approveBtn.style = 'display:none;'
-	  depositBtn = document.getElementById('depositBSN');
+	  depositBtn = document.getElementById(depositBtnId);
 	  depositBtn.style = 'display:;background-color:#00ED76;border-radius: 15px;'
 	  loadingBar.style = 'display:none;'
 	} catch (error) {
-	  approveBtn = document.getElementById('approveBSN');
+	  approveBtn = document.getElementById(approveBtnId);
 	  approveBtn.style = 'display:;';
 	  console.log("Transaction failed:", error);
 	  M.toast({html: 'Token Approval failed', displayLength:10000, classes: 'rounded red', });
@@ -1048,15 +1327,51 @@ async function withdrawRemainingBribe(blsKeyVal){
 	}
 }
 
-async function depositBribe(bribeToken, bribeAmountVal, blsKeyVal){
-	var depositBtn = document.getElementById('depositBSN');
-	depositBtn.style = 'display:none;'
-	var loadingBar = document.getElementById('depositLoading');
-	loadingBar.style = 'display:;';
-	
+async function withdrawRemainingBribe_lsm(liquidStakingManager){
 	await provider.send("eth_requestAccounts", []);
 	const signer = provider.getSigner();
+	
 	abi = [{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "liquidStakingManager",
+				"type": "address"
+			}
+		],
+		"name": "withdrawRemainingBribe",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	}];
+	
+	const chainId = await getConnectedNetworkId();
+	const BribeVaultAddress = getLSDNBribeVaultAddress(chainId);
+	const BribeVaultContract = new ethers.Contract(BribeVaultAddress, abi, signer);
+	var depositTx = await BribeVaultContract.withdrawRemainingBSN(liquidStakingManager);
+	console.log(depositTx);
+	
+	try {
+	  const withdrawalReceipt = await depositTx.wait();
+	  console.log("Transaction successful:", withdrawalReceipt);
+	  M.toast({html: 'Withdrawal succeeded!', displayLength:10000, classes: 'rounded green', });
+	} catch (error) {
+	  console.log("Transaction failed:", error);
+	  M.toast({html: 'Withdrawal failed', displayLength:10000, classes: 'rounded red', });
+	}
+}
+
+async function depositBribe(bribeToken, bribeAmountVal, blsKeyValOrValidatorRatio, lsdnTicker, bribeType){ // blsKeyValOrValidatorRatio is either key or int
+	const chainId = await getConnectedNetworkId();
+	var depositBtnId;
+	var loadingBarId;
+	var abi;
+	var BribeVaultAddress;
+	if (bribeType == "validator"){
+	  depositBtnId = 'depositBSN';
+	  loadingBarId = 'depositLoading';
+	  BribeVaultAddress = getNodeRunnerBribeVaultAddress(chainId);
+	  abi = [{
 		"inputs": [
 			{
 				"internalType": "address",
@@ -1079,9 +1394,53 @@ async function depositBribe(bribeToken, bribeAmountVal, blsKeyVal){
 		"stateMutability": "nonpayable",
 		"type": "function"
 	}];
+	}else{
+	  depositBtnId = 'depositBSNLsdNetwork';
+	  loadingBarId = 'depositLoadingLsdNetwork';
+	  BribeVaultAddress = getLSDNBribeVaultAddress(chainId);
+	  abi = [{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "bribeToken",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "bribeAmount",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "tokenToValidatorRatio",
+				"type": "uint256"
+			},
+			{
+				"internalType": "string",
+				"name": "lsdNetwork",
+				"type": "string"
+			},
+			{
+				"internalType": "address",
+				"name": "liquidStakingManager",
+				"type": "address"
+			}
+		],
+		"name": "depositBribe",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	}];
+	}
+	var depositBtn = document.getElementById(depositBtnId);
+	var loadingBar = document.getElementById(loadingBarId);
 	
-	const chainId = await getConnectedNetworkId();
-	const BribeVaultAddress = getNodeRunnerBribeVaultAddress(chainId);
+	depositBtn.style = 'display:none;'
+	loadingBar.style = 'display:;';
+	
+	await provider.send("eth_requestAccounts", []);
+	const signer = provider.getSigner();
+	
 	const BribeVaultContract = new ethers.Contract(BribeVaultAddress, abi, signer);
 	
 	const gasPrice = provider.getGasPrice().then(function(d){
@@ -1090,17 +1449,26 @@ async function depositBribe(bribeToken, bribeAmountVal, blsKeyVal){
 		console.log({gasLimit:g.toString(),gasPrice:d.toString()});
 		(async () => {
 			try {
-				var depositTx = await BribeVaultContract.depositBribe(bribeToken, ethers.BigNumber.from(bribeAmountVal.toString()), blsKeyVal, {gasLimit: d});
+				var depositTx;
+				if (bribeType=="Validator"){
+				  depositTx = await BribeVaultContract.depositBribe(bribeToken, ethers.BigNumber.from(bribeAmountVal.toString()), blsKeyValOrValidatorRatio, {gasLimit: d});
+				}else{
+				  var liquidStakingManager = await getLiquidStakingManagerByLSDNTicker(lsdnTicker);
+				  console.log(liquidStakingManager);
+				  // TO-DO: Fix other instances of this
+				  console.log("LSM for LSDN: " + lsdnTicker + ": " + liquidStakingManager.data.liquidStakingNetworks[0].liquidStakingManager);
+				  depositTx = await BribeVaultContract.depositBribe(bribeToken, ethers.BigNumber.from(bribeAmountVal.toString()), ethers.BigNumber.from(blsKeyValOrValidatorRatio.toString()), lsdnTicker, liquidStakingManager.data.liquidStakingNetworks[0].liquidStakingManager, {gasLimit: d});
+				}
 				console.log(depositTx);
 				const txReceipt = await depositTx.wait();
 				console.log("Transaction successful:", txReceipt);
 				M.toast({html: 'Deposit succeeded!', displayLength:10000, classes: 'rounded green', });
 				
-				depositBtn = document.getElementById('depositBSN');
+				depositBtn = document.getElementById(depositBtnId);
 				depositBtn.style = 'display:none;'
 				loadingBar.style = 'display:none;'
 			} catch (error) {
-				depositBtn = document.getElementById('depositBSN');
+				depositBtn = document.getElementById(depositBtnId);
 				depositBtn.style = 'display:;border-radius:15px;'
 				console.log("Transaction failed:", error);
 				M.toast({html: 'Deposit failed', displayLength:10000, classes: 'rounded red', });
@@ -1166,9 +1534,9 @@ document.addEventListener('DOMContentLoaded', function() {
 			if(Number.isFinite(tokenAmountVal)){
 				var bribeToken = document.getElementById('bribeTokenSelect');
 			
-				if(bribeToken.value=="custom"){
-					bribeToken = document.getElementById('customBribeToken');
-				}
+				//if(bribeToken.value=="custom"){
+				//	bribeToken = document.getElementById('customBribeToken');
+				//}
 				
 				console.log("Checking token allowance...");
 				
@@ -1189,7 +1557,48 @@ document.addEventListener('DOMContentLoaded', function() {
 							loadingBar.style = 'display:none;'
 						}else{
 							console.log("Approving token spend...");
-							approveTokenSpend(bribeToken.value,tokenAmountVal);
+							approveTokenSpend(bribeToken.value,tokenAmountVal, "validator");
+						}
+					
+					});
+				})();
+			}else{
+				 M.toast({html: 'Invalid token amount', displayLength:10000, classes: 'rounded red', });
+			}
+		});
+
+		approveBSNLSDBtn = document.getElementById('approveBSNLsdNetwork');
+		approveBSNLSDBtn.addEventListener('click',function(d){
+			var tokenAmount = document.getElementById('tokenAmountDepositTotalLsdNetwork');
+			var tokenAmountVal = parseFloat(tokenAmount.value);
+			
+			if(Number.isFinite(tokenAmountVal)){
+				var bribeToken = document.getElementById('bribeTokenSelectLsdNetwork');
+			
+				//if(bribeToken.value=="custom"){
+				//	bribeToken = document.getElementById('customBribeToken');
+				//}
+				
+				console.log("Checking token allowance...");
+				
+				(async () => {
+					const chainId = await getConnectedNetworkId();
+					const BribeVaultAddress = getLSDNBribeVaultAddress(chainId);
+					
+					tokenAllowance(bribeToken.value, BribeVaultAddress).then(function(allowance){
+					
+						if(allowance >= tokenAmountVal){
+							console.log("Allowance already exists");
+							M.toast({html: 'Token allowance already exists', displayLength:10000, classes: 'rounded blue white-text', });
+							approveBtn = document.getElementById('approveBSNLsdNetwork');
+							approveBtn.style = 'display:none;'
+							depositBtn = document.getElementById('depositBSNLsdNetwork');
+							depositBtn.style = 'display:;background-color:#00ED76;border-radius: 15px;'
+							var loadingBar = document.getElementById('depositLoadingLsdNetwork');
+							loadingBar.style = 'display:none;'
+						}else{
+							console.log("Approving token spend...");
+							approveTokenSpend(bribeToken.value,tokenAmountVal, "lsdn");
 						}
 					
 					});
@@ -1211,12 +1620,24 @@ document.addEventListener('DOMContentLoaded', function() {
 			totalTokenValue.value = new Decimal(parseFloat(this.value)) * parseFloat(28);
 		});
 		
-		withdrawaBSNBtn = document.getElementById('withdrawConfirmBtn');
-		withdrawaBSNBtn.addEventListener('click',function(d){
-			console.log("Withdrawing remaining BSN...");
-			var blsKey = document.getElementById('withdrawBLS');
-			var blsKeyVal = blsKey.value;
-			withdrawRemainingBribe(blsKeyVal);
+		withdrawBSNBtn = document.getElementById('withdrawConfirmBtn');
+		withdrawBSNBtn.addEventListener('click',function(d){
+			(async () => {
+				console.log("Withdrawing remaining BSN...");
+				var withdrawalType = document.getElementById('withdrawType');
+				if(withdrawalType == "validator"){
+					var blsKey = document.getElementById('withdrawBLSorNetwork');
+					var blsKeyVal = blsKey.value;
+					withdrawRemainingBribe(blsKeyVal);
+				}else{
+					var networkTicker = document.getElementById('withdrawBLSorNetwork');
+					var lsdnVal = networkTicker.value;
+					var liquidStakingManager = await getLiquidStakingManagerByLSDNTicker(lsdnVal);
+					
+					console.log("LSM for LSDN: " + lsdnVal + ": " + liquidStakingManager.data.liquidStakingNetworks.liquidStakingManager);
+					withdrawRemainingBribe_lsm(liquidStakingManager.data.liquidStakingNetworks.liquidStakingManager);
+				}
+			})();
 		});
 		
 		depositBSNBtn = document.getElementById('depositBSN');
@@ -1248,11 +1669,53 @@ document.addEventListener('DOMContentLoaded', function() {
 				console.log("Token amount res: " + resultAmt.toString());
 				console.log("Token amount res fix: " + resultAmtFixed.toString());
 				//(async () => {
-				depositBribe(bribeTokenVal, resultAmtFixed, blsKeyVal);
+				depositBribe(bribeTokenVal, resultAmtFixed, blsKeyVal, "", "validator"); // depositBribe(bribeToken, bribeAmountVal, blsKeyValOrValidatorRatio, lsdnTicker, bribeType)
 			})();
 			
 			//});
 		});
+		
+		depositBSNLSDBtn = document.getElementById('depositBSNLsdNetwork');
+		depositBSNLSDBtn.addEventListener('click',function(d){
+			console.log("Depositing BSN...");
+			
+			var tokenAmount = document.getElementById('tokenAmountDepositTotalLsdNetwork');
+			var lsdnTicker = document.getElementById('lsdNetworkTickerDeposit');
+			var bribeToken = document.getElementById('bribeTokenSelectLsdNetwork');
+			var tokensPerValidator = document.getElementById('tokenAmountDepositLsdNetwork');
+			
+			if(bribeToken.value=="custom"){
+				bribeToken = document.getElementById('customBribeToken');
+			}
+			(async () => {
+				tokenDecimals = await getTokenDecimals(bribeToken.value);
+				console.log("Token decimals: " + tokenDecimals.toString());
+			
+				var tokenAmountVal = parseFloat(tokenAmount.value);
+				var tokensPerValidatorVal = parseFloat(tokensPerValidator.value);
+				var lsdnTickerVal = lsdnTicker.value;
+				var bribeTokenVal = bribeToken.value;
+				
+				var amountDecimal = BigInt(tokenAmountVal);
+				var amountPerValDecimal = BigInt(tokensPerValidatorVal);
+				console.log("Token amount dec: " + amountDecimal.toString());
+				
+				var multiplier = new Decimal(10**tokenDecimals);
+				var resultAmt = amountDecimal * BigInt(multiplier);
+				//var resultAmtFixed = Math.round(resultAmt.toFixed());
+
+				var resultAmtPerVal = amountPerValDecimal * BigInt(multiplier);
+				//var resultAmtFixedPerVal = Math.round(resultAmtPerVal.toFixed());
+				
+				console.log("Token amount res: " + resultAmt.toString());
+				console.log("Token amount per val: " + resultAmtPerVal.toString());
+				//(async () => {
+				depositBribe(bribeTokenVal, resultAmt.toString(), resultAmtPerVal.toString(), lsdnTickerVal, "lsdn"); // depositBribe(bribeToken, bribeAmountVal, blsKeyValOrValidatorRatio, lsdnTicker, bribeType)
+			})();
+			
+			//});
+		});
+
 	})();
 });
 
