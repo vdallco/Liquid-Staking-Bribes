@@ -52,5 +52,4 @@ The bribe vaults may be deployed via Remix IDE.
 | Contract    | Address     |
 | ----------- | ----------- |
 | NodeRunnerBribeVault        | 0xd7BB3Ee6Cbec711c7D11864eF0A89A041ed65D69  |
-| LSDNetworkownerBribeVault   | 0xd4Ee6860a5aFdae5F375E4F8bacD381f75c2ADBA  |
-
+| LSDNetworkownerBribeVault   | 0x221A671dDD2Eb1101017F9795524827b8E874A13  |
