@@ -9,11 +9,11 @@ const network = document.querySelector("select");
 
 const { Wizard } = require('@blockswaplab/lsd-wizard');
 
-BribeVault_NodeRunners_Goerli = '0xd7BB3Ee6Cbec711c7D11864eF0A89A041ed65D69'; // TO-DO: Update code to use Network switch to select Mainnet or testnet
-BribeVault_NodeRunners_Mainnet = '0x093e0d68c96aFD4e6DebC3cF802113E653A879cc'; 
+BribeVault_NodeRunners_Goerli = '0xd7BB3Ee6Cbec711c7D11864eF0A89A041ed65D69';
+BribeVault_NodeRunners_Mainnet = '0x49af554ca2726828be938d2ea3229b1c47f471bf';
 
-BribeVault_LSDNetworks_Goerli = '0x221A671dDD2Eb1101017F9795524827b8E874A13'
-BribeVault_LSDNetworks_Mainnet = ''
+BribeVault_LSDNetworks_Goerli = '0x863302E8964029DF39c037C49308E5beEaC1F7c7'
+BribeVault_LSDNetworks_Mainnet = '0xd3dfee51c18d09cd2efd1481295df85758280144'
 
 GOERLI_INFURA = 'https://intensive-silent-violet.ethereum-goerli.discover.quiknode.pro/f7e4fa1b9ea3a3898dc4b6b0ba4a2eeb14e98e14/';
 MAINNET_INFURA = ''
@@ -89,6 +89,19 @@ var GRAPHQL_BLS_KEYS_BY_LSDN_AND_NODERUNNER = `
 	  }
 	}
 `;
+
+var GRAPHQL_LSDN_OWNER_BY_TICKER = `
+query GetLSDNOwnerByTicker {
+  liquidStakingNetworks(where: {ticker: "%NETWORK%"}) {
+    dao
+	lsdIndex
+  }
+}
+`;
+
+const LSDN_BRIBE_ABI = `
+[ { "inputs": [ { "internalType": "address", "name": "_owner", "type": "address" }, { "internalType": "address", "name": "_stakehouseUniverse", "type": "address" }, { "internalType": "address", "name": "_feeRecipient", "type": "address" }, { "internalType": "uint256", "name": "_feePerClaimDivisor", "type": "uint256" }, { "internalType": "address[]", "name": "rewardTokensAllowed", "type": "address[]" } ], "stateMutability": "nonpayable", "type": "constructor" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "uint256", "name": "bribeId", "type": "uint256" }, { "indexed": true, "internalType": "address", "name": "sender", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "epoch", "type": "uint256" } ], "name": "BribeAdded", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "uint256", "name": "bribeId", "type": "uint256" }, { "indexed": true, "internalType": "address", "name": "sender", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "epoch", "type": "uint256" } ], "name": "BribeClaimed", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "uint256", "name": "bribeId", "type": "uint256" }, { "indexed": true, "internalType": "address", "name": "sender", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "epoch", "type": "uint256" } ], "name": "BribeRemoved", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "uint256", "name": "bribeId", "type": "uint256" }, { "indexed": true, "internalType": "address", "name": "sender", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "epoch", "type": "uint256" } ], "name": "BribeToppedUp", "type": "event" }, { "inputs": [ { "internalType": "bytes", "name": "validatorBLSKey", "type": "bytes" } ], "name": "claim", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [ { "internalType": "address", "name": "bribeToken", "type": "address" }, { "internalType": "uint256", "name": "bribeAmount", "type": "uint256" }, { "internalType": "uint256", "name": "tokenToValidatorRatio", "type": "uint256" }, { "internalType": "string", "name": "lsdNetwork", "type": "string" }, { "internalType": "address", "name": "liquidStakingManager", "type": "address" }, { "internalType": "uint16", "name": "maxClaims", "type": "uint16" } ], "name": "depositBribe", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "sender", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "newFeePerClaim", "type": "uint256" }, { "indexed": false, "internalType": "uint256", "name": "oldFeePerClaim", "type": "uint256" }, { "indexed": false, "internalType": "uint256", "name": "epoch", "type": "uint256" } ], "name": "FeePerClaimUpdated", "type": "event" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "sender", "type": "address" }, { "indexed": false, "internalType": "address", "name": "newFeeRecipient", "type": "address" }, { "indexed": false, "internalType": "address", "name": "oldFeeRecipient", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "epoch", "type": "uint256" } ], "name": "FeeRecipientUpdated", "type": "event" }, { "inputs": [ { "internalType": "bytes", "name": "validatorBLSKey", "type": "bytes" } ], "name": "initClaim", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [ { "internalType": "address", "name": "token", "type": "address" }, { "internalType": "bool", "name": "allowed", "type": "bool" } ], "name": "setAllowToken", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [ { "internalType": "uint256", "name": "newFeePerClaim", "type": "uint256" } ], "name": "setFeePerClaim", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [ { "internalType": "address", "name": "newFeeRecipient", "type": "address" } ], "name": "setFeeRecipient", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "anonymous": false, "inputs": [ { "indexed": true, "internalType": "address", "name": "sender", "type": "address" }, { "indexed": false, "internalType": "uint256", "name": "epoch", "type": "uint256" } ], "name": "VaultCreated", "type": "event" }, { "inputs": [ { "internalType": "address", "name": "liquidStakingManager", "type": "address" } ], "name": "withdrawRemainingBribe", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "inputs": [], "name": "bribeLength", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [ { "internalType": "bytes", "name": "validatorBLSKey", "type": "bytes" } ], "name": "claimable", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "depositIndex", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [ { "internalType": "string", "name": "", "type": "string" } ], "name": "deposits", "outputs": [ { "internalType": "uint256", "name": "id", "type": "uint256" }, { "internalType": "address", "name": "token", "type": "address" }, { "internalType": "uint256", "name": "tokenAmount", "type": "uint256" }, { "internalType": "uint256", "name": "tokenToValidatorRatio", "type": "uint256" }, { "internalType": "bool", "name": "activeClaims", "type": "bool" }, { "internalType": "uint16", "name": "activeClaimsCount", "type": "uint16" }, { "internalType": "uint16", "name": "maxClaims", "type": "uint16" }, { "internalType": "uint16", "name": "totalClaims", "type": "uint16" } ], "stateMutability": "view", "type": "function" }, { "inputs": [ { "internalType": "bytes", "name": "validatorBLSKey", "type": "bytes" }, { "internalType": "address", "name": "depositor", "type": "address" } ], "name": "ethDepositsByBLSKeyAndAddress", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "feePerClaimDivisor", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "feePerClaimDivisorMin", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "feeRecipient", "outputs": [ { "internalType": "address", "name": "", "type": "address" } ], "stateMutability": "view", "type": "function" }, { "inputs": [ { "internalType": "bytes", "name": "validatorBLSKey", "type": "bytes" } ], "name": "getLPTokensByBLS", "outputs": [ { "internalType": "address", "name": "", "type": "address" }, { "internalType": "address", "name": "", "type": "address" } ], "stateMutability": "view", "type": "function" }, { "inputs": [ { "internalType": "bytes", "name": "validatorBLSKey", "type": "bytes" } ], "name": "getNodeRunnerAddress", "outputs": [ { "internalType": "address", "name": "", "type": "address" } ], "stateMutability": "view", "type": "function" }, { "inputs": [ { "internalType": "bytes", "name": "validatorBLSKey", "type": "bytes" } ], "name": "getSavETHandMEVFeesPoolsByBLS", "outputs": [ { "internalType": "address", "name": "", "type": "address" }, { "internalType": "address", "name": "", "type": "address" } ], "stateMutability": "view", "type": "function" }, { "inputs": [ { "internalType": "bytes", "name": "validatorBLSKey", "type": "bytes" } ], "name": "getValidatorNetwork", "outputs": [ { "internalType": "string", "name": "", "type": "string" } ], "stateMutability": "view", "type": "function" }, { "inputs": [ { "internalType": "string", "name": "lsdNetwork", "type": "string" }, { "internalType": "bytes", "name": "validatorBLS", "type": "bytes" } ], "name": "hasClaimed", "outputs": [ { "internalType": "bool", "name": "", "type": "bool" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "lsdNetworkIndex", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" }, { "inputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "name": "lsdNetworkNames", "outputs": [ { "internalType": "string", "name": "", "type": "string" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "owner", "outputs": [ { "internalType": "address", "name": "", "type": "address" } ], "stateMutability": "view", "type": "function" }, { "inputs": [ { "internalType": "address", "name": "", "type": "address" } ], "name": "rewardTokens", "outputs": [ { "internalType": "bool", "name": "", "type": "bool" } ], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "stakehouseUniverse", "outputs": [ { "internalType": "address", "name": "", "type": "address" } ], "stateMutability": "view", "type": "function" }, { "inputs": [ { "internalType": "bytes", "name": "validatorBLSKey", "type": "bytes" } ], "name": "totalClaimable", "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ], "stateMutability": "view", "type": "function" } ]
+`
 
 const verifiedTokens_Goerli = ['0x359599d4032D6540F3bE62E459861f742Ceb851f', // BSN
 							   '0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6', // WETH
@@ -240,6 +253,22 @@ async function getBLSKeysByLSDNTickerAndNodeRunnerAddress(networkTicker, nodeRun
 	respJson = await response.json();
 	return respJson;
 }
+
+async function getLSDNetworkOwnerByTicker(networkTicker){
+	chainId = await getConnectedNetworkId();
+	graphQLURL = chainId == 1 ? MAINNET_GRAPHQL : GOERLI_GRAPHQL;
+
+	response = await fetch(graphQLURL, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify( {query: GRAPHQL_LSDN_OWNER_BY_TICKER.replace('%NETWORK%', networkTicker)} )
+		});
+	respJson = await response.json();
+	return respJson;
+}
+
 
 async function getNodeRunnersByNetwork(network){
 	chainId = await getConnectedNetworkId();
@@ -440,6 +469,18 @@ function compactNumber(inputNum, maxDecimals = 18){
 	}).format(inputNum.toString());
 }
 
+function lsdnLink(lsdNetworkIndex, lsdNetworkTicker) {
+	var networkName = "goerli";
+	if (network.value == 1){
+		networkName = "mainnet"
+	}else if (network.value == 5){
+		networkName = "goerli"
+	}else{
+		return;
+	}
+	return '<span class="chip"><a href="https://joinstakehouse.com/monitoring/index/' + lsdNetworkIndex.toString() + "?network=" + networkName + '">' + lsdNetworkTicker + "</a></span>";
+}
+
 function compactAddress(addr){
 	const firstFour = addr.substring(0, 6);
 	const lastFour = addr.substring(addr.length - 4);
@@ -511,7 +552,7 @@ async function claimable(blsKey){
 	}
 }
 
-async function claimableLSDN(blsKey){
+async function claimableLSDN(blsKey, lsdnTicker){
 	await provider.send("eth_requestAccounts", []);
 	const signer = provider.getSigner();
 	const contractABI = [{
@@ -532,21 +573,150 @@ async function claimableLSDN(blsKey){
 		],
 		"stateMutability": "view",
 		"type": "function"
+	},{
+		"inputs": [
+			{
+				"internalType": "bytes",
+				"name": "validatorBLSKey",
+				"type": "bytes"
+			}
+		],
+		"name": "getValidatorNetwork",
+		"outputs": [
+			{
+				"internalType": "string",
+				"name": "",
+				"type": "string"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},{
+		"inputs": [],
+		"name": "lsdNetworkIndex",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"name": "lsdNetworkNames",
+		"outputs": [
+			{
+				"internalType": "string",
+				"name": "",
+				"type": "string"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},{
+		"inputs": [
+			{
+				"internalType": "string",
+				"name": "",
+				"type": "string"
+			}
+		],
+		"name": "deposits",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "id",
+				"type": "uint256"
+			},
+			{
+				"internalType": "address",
+				"name": "token",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "tokenAmount",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "tokenToValidatorRatio",
+				"type": "uint256"
+			},
+			{
+				"internalType": "bool",
+				"name": "activeClaims",
+				"type": "bool"
+			},
+			{
+				"internalType": "uint16",
+				"name": "activeClaimsCount",
+				"type": "uint16"
+			},
+			{
+				"internalType": "uint16",
+				"name": "maxClaims",
+				"type": "uint16"
+			},
+			{
+				"internalType": "uint16",
+				"name": "totalClaims",
+				"type": "uint16"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
 	}];
 
 	const chainId = await getConnectedNetworkId();
 	const BribeVaultAddress = getLSDNBribeVaultAddress(chainId);
-	const BribeVaultContract = new ethers.Contract(BribeVaultAddress, contractABI, signer);
+	const BribeVaultContract = new ethers.Contract(BribeVaultAddress, LSDN_BRIBE_ABI, signer);
 	
 	console.log("Checking claimable for LSD network " + blsKey);
 	
+	var encodedData = ethers.utils.arrayify(blsKey);
+	var lsdNetwork;
+
 	try{
-		const claimableResult = await BribeVaultContract.claimable(blsKey);
-	
-		console.log("claimable result");
-		console.log(claimableResult.toString());
-		
-		return claimableResult;
+		lsdNetwork = await BribeVaultContract.getValidatorNetwork(encodedData);
+		var claimableResult = await BribeVaultContract.claimable(encodedData);
+		// claimable will revert with "validator hasn't initiated claim" if BLS has not
+		// initiated claim for their network bribe
+		return ethers.BigNumber.from(claimableResult.toString())
+	}catch(e){
+		// if execution reverted, then either:
+		//  - the BLS hasn't initiated claim
+		//  - the BLS isnn't eligible
+		// unfortunately the claimedDeposits mapping is internal, so we
+		// need to cross-check LSDN ticker here
+		if(e.toString().includes("validator hasn't initiated claim") && lsdnTicker == lsdNetwork){
+			return ethers.BigNumber.from("-1");
+		}else{
+			return 0;
+		}
+	}
+
+	try{
+		const blsNetwork = await BribeVaultContract.getValidatorNetwork(blsKey);
+		const incentivizedNetworksCount = await BribeVaultContract.lsdNetworkIndex();
+		for (var x = 0; x < incentivizedNetworksCount; x++){
+			const incentivizedNetworkSymbol = await BribeVaultContract.lsdNetworkNames(x);
+			const bribeDeposit = await BribeVaultContract.deposits(incentivizedNetworkSymbol);
+			if (blsNetwork == incentivizedNetworkSymbol) {
+				console.log("claimable result");
+				console.log(bribeDeposit[3]);
+				return bribeDeposit[3];
+			}
+		}
+		return 0;
 	}catch(e){
 		console.log("Error: ");
 		console.log(e);
@@ -639,7 +809,7 @@ async function hasClaimedNodeRunner(lsdTicker, validatorBLS){
 	];
 	
 	const chainId = await getConnectedNetworkId();
-	const BribeVaultAddress = getNodeRunnerBribeVaultAddress(chainId);
+	const BribeVaultAddress = getLSDNBribeVaultAddress(chainId);
 	const BribeVaultContract = new ethers.Contract(BribeVaultAddress, contractABI, signer);
 
 	console.log("Checking hasClaimed for LSD ticker " + lsdTicker + " and BLS key " + validatorBLS);
@@ -669,7 +839,27 @@ function getEtherscanLink(){
 	}
 }
 
-async function addBribeToList(bribeToken, bribeAmountBsn, bribeRatio, validatorBLSorNetworkName, expiration, disabled, bribeType){
+async function getFirstClaimableLSDNValidatorForSigner(lsdnTicker, signer){
+	//console.log("getFirstClaimableLSDNValidatorForSigner()");
+	signerAddr = await signer.getAddress();
+	signerAddrLower = signerAddr.toString().toLowerCase();
+	//console.log("getFirstClaimableLSDNValidatorForSigner(): signer addr: " + signerAddrLower);
+	var blsKeys = await getBLSKeysByLSDNTickerAndNodeRunnerAddress(lsdnTicker, signerAddrLower);
+	console.log("getBLSKeysByLSDNTickerAndNodeRunnerAddress result")
+	console.log(blsKeys)
+	if(blsKeys.data.smartWallets.length == 0){
+		return ""; // there are no claimable validators for this LSDN bribe
+	}
+
+	for (var x=0; x<blsKeys.data.smartWallets[0].nodeRunner.validators.length; x++){
+		var claimable = await claimableLSDN(blsKeys.data.smartWallets[0].nodeRunner.validators[x].id, lsdnTicker);
+		if (claimable != 0){ // Register/Initiate == -1
+			return blsKeys.data.smartWallets[0].nodeRunner.validators[x].id;
+		}
+	}
+}
+
+async function addBribeToList(bribeToken, bribeAmountBsn, bribeRatio, validatorBLSorNetworkName, expiration, disabled, bribeType, maxClaimsForLSDNBribe, totalClaimsForLSDNBribe, activeClaimsForLSDNBribe){
 	var networkName;
 	var validatorBLS;
 	if(bribeType=="nodeRunner"){
@@ -686,10 +876,22 @@ async function addBribeToList(bribeToken, bribeAmountBsn, bribeRatio, validatorB
 	});
 	
 	var claimableAmt;
+	var firstClaimableBLS;
 	if(bribeType=="nodeRunner"){
 		claimableAmt = await claimable(validatorBLS);
 	}else{
-		claimableAmt = await claimableLSDN(validatorBLS);
+		firstClaimableBLS = await getFirstClaimableLSDNValidatorForSigner(validatorBLSorNetworkName, signer);
+		if(firstClaimableBLS == ""){
+			claimableAmt = 0;
+			disabled = false; // set this to false to prevent Claimed button from showing
+		}else{
+			console.log("Found first BLS eligible to claim: " + firstClaimableBLS);
+			claimableAmt = await claimableLSDN(firstClaimableBLS, validatorBLSorNetworkName);
+
+			var hasClaimedReward = await hasClaimedNodeRunner(validatorBLSorNetworkName, firstClaimableBLS);
+
+			disabled = hasClaimedReward; // update the disabled attribute (Claimed btn)
+		}
 	}
 	
 	var lsdNetworkTicker = "???"
@@ -753,44 +955,74 @@ async function addBribeToList(bribeToken, bribeAmountBsn, bribeRatio, validatorB
 	const divisor = new Decimal(Math.pow(10,tokenDecimals));
 	const bribeAmtScaled = bribeAmount.div(divisor);
 	const rewardsRatioScaled = rewardsRatio.div(divisor);
-	
+
 	claimBtnHtml = "";
 	if(disabled){
 		claimBtnHtml = '<a href="#!" id="claim'+validatorBLSorNetworkName+'" class="secondary-content col s2 btn btn-large disabled" style="border-radius: 15px;">Claimed</a>';
-		
 	}else{
 		if(claimableAmt>0){
-			const claimableAmount = new Decimal(claimableAmt.toString());
-			const claimableAmtScaled = claimableAmount.div(divisor);
-			claimBtnHtml = '<a href="#!" id="claim'+validatorBLSorNetworkName+
-			'" class="secondary-content col s2 btn btn-large" style="background-color:#78A7FF;border-radius: 15px;min-width:150px;margin-top:14px;">'+
-			'Claim ' + compactNumber(claimableAmtScaled, 3) + '</a>';
-		}else if(claimableAmt<0){ // LP snapshot not taken
-			if(lsdNetworkStatus == "MINTED_DERIVATIVES"){ // validator is staked and derivatives minted, show Snapshot btn
-				claimBtnHtml = '<a href="#!" id="lpSnapshot'+validatorBLSorNetworkName+
-				'" class="secondary-content col s2 btn btn-large tooltipped" data-position="bottom" data-tooltip="LP balances must be recorded in a snapshot on-chain before rewards may be claimed" style="background-color:#78A7FF;border-radius: 15px;min-width:150px;margin-top:14px;">'+
-				'Snapshot</a>';
-			}else if (lsdNetworkStatus == "WAITING_FOR_ETH"){ // validator has not yet staked
-				claimBtnHtml = '<a href="#!" disabled class="secondary-content col s2 btn btn-large tooltipped" data-position="bottom" data-tooltip="The validator has not yet been staked" style="background-color:#78A7FF;border-radius: 15px;min-width:150px;margin-top:14px;">'+
-				'Waiting for ETH</a>'
-			}else if (lsdNetworkStatus == "STAKED"){ // validator has not yet minted derivatives
-				claimBtnHtml = '<a href="#!" disabled class="secondary-content col s2 btn btn-large tooltipped" data-position="bottom" data-tooltip="The validator has not yet minted derivatives" style="background-color:#78A7FF;border-radius: 15px;min-width:150px;margin-top:14px;">'+
-				'Waiting on mint</a>'
+				const claimableAmount = new Decimal(claimableAmt.toString());
+				const claimableAmtScaled = claimableAmount.div(divisor);
+				claimBtnHtml = '<a href="#!" id="claim'+validatorBLSorNetworkName+
+				'" class="secondary-content col s2 btn btn-large" style="background-color:#78A7FF;border-radius: 15px;min-width:150px;margin-top:14px;">'+
+				'Claim ' + compactNumber(claimableAmtScaled, 3) + '</a>';
+		}else if(claimableAmt<0){ // LP snapshot not taken OR lsdn bribe claim not initiated
+			if(bribeType != "nodeRunner"){
+				// signer has not initiated claim, display initiate/register btn
+				claimBtnHtml = '<a href="#!" id="register'+validatorBLSorNetworkName+
+				'-'+firstClaimableBLS+'" class="secondary-content col s2 btn btn-large" style="background-color:#78A7FF;border-radius: 15px;min-width:150px;margin-top:14px;">'+
+				'Register</a>';
+			}else{
+				if(lsdNetworkStatus == "MINTED_DERIVATIVES"){ // validator is staked and derivatives minted, show Snapshot btn
+					claimBtnHtml = '<a href="#!" id="lpSnapshot'+validatorBLSorNetworkName+
+					'" class="secondary-content col s2 btn btn-large tooltipped" data-position="bottom" data-tooltip="LP balances must be recorded in a snapshot on-chain before rewards may be claimed" style="background-color:#78A7FF;border-radius: 15px;min-width:150px;margin-top:14px;">'+
+					'Snapshot</a>';
+				}else if (lsdNetworkStatus == "WAITING_FOR_ETH"){ // validator has not yet staked
+					claimBtnHtml = '<a href="#!" disabled class="secondary-content col s2 btn btn-large tooltipped" data-position="bottom" data-tooltip="The validator has not yet been staked" style="background-color:#78A7FF;border-radius: 15px;min-width:150px;margin-top:14px;">'+
+					'Waiting for ETH</a>'
+				}else if (lsdNetworkStatus == "STAKED"){ // validator has not yet minted derivatives
+					claimBtnHtml = '<a href="#!" disabled class="secondary-content col s2 btn btn-large tooltipped" data-position="bottom" data-tooltip="The validator has not yet minted derivatives" style="background-color:#78A7FF;border-radius: 15px;min-width:150px;margin-top:14px;">'+
+					'Waiting on mint</a>'
+				}
 			}
 		}else{
 			// user is not eligible to claim. Perhaps display the LP Snapshot
 		}
 	}
 	
-	if(bribeExpired){
+	lsdnOwnerMayWithdraw = false;
+	var lsdNetworkIndex = 0;
+	signerAddr = await signer.getAddress()
+
+	if (bribeType == "lsdNetwork"){
+		var lsdnOwner = await getLSDNetworkOwnerByTicker(validatorBLSorNetworkName);
+		lsdnOwnerStr = lsdnOwner.data.liquidStakingNetworks[0].dao;
+		lsdNetworkIndex = lsdnOwner.data.liquidStakingNetworks[0].lsdIndex;
+		console.log("LSDN data")
+		console.log(lsdnOwner.data.liquidStakingNetworks[0])
+		console.log("LSDN owner: " + lsdnOwnerStr)
+		console.log("LSDN index: " + lsdNetworkIndex.toString())
+		lsdnOwnerMayWithdraw = (activeClaimsForLSDNBribe == 0) && (lsdnOwnerStr == signerAddr);
+	}
+
+	if((bribeExpired && bribeType == "nodeRunner") || (lsdnOwnerMayWithdraw && bribeType == "lsdNetwork")){ 
 		claimBtnHtml = '<a href="#!" id="withdraw'+validatorBLSorNetworkName+'" class="secondary-content col s2 btn btn-large" style="background-color:#78A7FF;border-radius: 15px;">Withdraw</a>';
 	}
 	
 	var loadingBar = '<div class="progress" id="claimLoading" style="display:none;"><div class="indeterminate"></div></div>';
 	
-	var expirationHtml = '<span class="secondary-content chip col s3" style="display:inline-flex;align-items: center;height: auto;padding: 0.5rem 0.75rem;min-width:120px;max-width:120px;">'+
-						 '<i class="material-icons xs" style="margin-right:4px;position: relative;top:5px;">lock_clock</i>' +
+	var expirationHtml;
+
+	if (bribeType=="nodeRunner"){
+		expirationHtml = '<span class="secondary-content chip col s3" style="display:inline-flex;align-items: center;height: auto;padding: 0.5rem 0.75rem;min-width:190px;max-width:190px;">'+
+						 '<i class="material-icons xs" style="margin-right:4px;position: relative;top:5px;">lock_clock</i>expires ' +
 						expirationStr + '</span>';
+	} else {
+		claimsProgress = totalClaimsForLSDNBribe.toString() + "/" + maxClaimsForLSDNBribe.toString()
+		expirationHtml = '<span class="secondary-content chip col s3" style="display:inline-flex;align-items: center;height: auto;padding: 0.5rem 0.75rem;min-width:190px;max-width:190px;">'+
+						 '<i class="material-icons xs" style="margin-right:4px;position: relative;top:5px;">price_check</i>' +
+						claimsProgress + ' claims initiated</span>';
+	}
 	
 	var verifiedIcon = '';
 	
@@ -807,14 +1039,14 @@ async function addBribeToList(bribeToken, bribeAmountBsn, bribeRatio, validatorB
 	var bribeTokenLink = '<a href="' + getEtherscanLink() + 'token/' + bribeTokenContract.address + '" target="_">' + bribeTokenSymbol + verifiedIcon + '</a>';
 	
 	if(bribeType=="nodeRunner"){
-		li.innerHTML = '<div class="row" style="display: flex;justify-content:space-between;"><h5 class="title col s5 right-align">' + compactNumber(rewardsRatioScaled) + ' ' + bribeTokenLink + '</h5> <h6 class="col s5" style="padding-top:7px;margin-left:0px;"> per 1 ETH</h5>' + expirationHtml + '</div>' + 
-				   '<span class="row" style="display: flex;justify-content:space-between;"><p class="col s9" style="margin-left:16px;">' + compactNumber(bribeAmtScaled) + 
+		li.innerHTML = '<div class="row" style="display: flex;justify-content:space-between;"><h5 class="title col s5 right-align">' + compactNumber(rewardsRatioScaled, 5) + ' ' + bribeTokenLink + '</h5> <h6 class="col s5" style="padding-top:7px;margin-left:0px;"> per 1 ETH</h5>' + expirationHtml + '</div>' + 
+				   '<span class="row" style="display: flex;justify-content:space-between;"><p class="col s9" style="margin-left:16px;">' + compactNumber(bribeAmtScaled, 5) + 
 				   ' remaining ' + bribeTokenSymbol + '<br>for depositors of ' + compactBLSKeyLink(validatorBLS) + ' <span class="chip">' + lsdNetworkTicker + '</span></p>' + 
 				    claimBtnHtml + '</span>';
 	}else{
-		li.innerHTML = '<div class="row" style="display: flex;justify-content:space-between;"><h5 class="title col s5 right-align">' + compactNumber(rewardsRatioScaled) + ' ' + bribeTokenLink + '</h5> <h6 class="col s5" style="padding-top:7px;margin-left:0px;"> per validator</h5>' + expirationHtml + '</div>' + 
-				   '<span class="row" style="display: flex;justify-content:space-between;"><p class="col s9" style="margin-left:16px;">' + compactNumber(bribeAmtScaled) + 
-				   ' remaining ' + bribeTokenSymbol + '<br>for node runners in ' + ' <span class="chip">' + lsdNetworkTicker + '</span></p>' + 
+		li.innerHTML = '<div class="row" style="display: flex;justify-content:space-between;"><h5 class="title col s5 right-align">' + compactNumber(rewardsRatioScaled, 5) + ' ' + bribeTokenLink + '</h5> <h6 class="col s5" style="padding-top:7px;margin-left:0px;"> per validator</h5>' + expirationHtml + '</div>' + 
+				   '<span class="row" style="display: flex;justify-content:space-between;"><p class="col s9" style="margin-left:16px;">' + compactNumber(bribeAmtScaled, 5) + 
+				   ' remaining ' + bribeTokenSymbol + '<br>for node runners in ' + lsdnLink(lsdNetworkIndex, lsdNetworkTicker) + '</p>' + 
 				    claimBtnHtml + '</span>';
 	}
 	li.style = 'background-color:#424242;';
@@ -823,6 +1055,20 @@ async function addBribeToList(bribeToken, bribeAmountBsn, bribeRatio, validatorB
 	var elems = document.querySelectorAll('.tooltipped');
 	var instances = M.Tooltip.init(elems, undefined);
 	
+	var registerBtn = document.querySelectorAll('[id^="register' +validatorBLSorNetworkName +'"]');
+	if (registerBtn.length>0){
+		registerBtn[0].addEventListener('click', function() { 
+			var blsKey = this.id.split('register' + validatorBLSorNetworkName + "-")[1];
+			
+			(async () => {
+				console.log("Registering/initiating claim for " + validatorBLSorNetworkName + " and BLS Key " + blsKey);
+				
+				const encodedData = ethers.utils.arrayify(blsKey);
+				initClaim = await initiateClaimLSDN(encodedData);
+			})();
+		});
+	}
+
 	var withdrawBtn = document.getElementById('withdraw'+validatorBLSorNetworkName);
 	
 	if(withdrawBtn != undefined){
@@ -861,52 +1107,43 @@ async function addBribeToList(bribeToken, bribeAmountBsn, bribeRatio, validatorB
 	
 	if(claimBtn != undefined){
 		claimBtn.addEventListener('click', function() { 
-			var goerli_http = new ethers.providers.JsonRpcProvider(GOERLI_INFURA);
-			var blsOrNetwork = this.id.split('claim')[1];
-
-			const contractABI = [
-				{
-					"inputs": [
-						{
-							"internalType": "bytes",
-							"name": "validatorBLSKey",
-							"type": "bytes"
-						}
-					],
-					"name": "claim",
-					"outputs": [],
-					"stateMutability": "nonpayable",
-					"type": "function"
-				}];
-
-			
-			
-			var bribeType = "";
-
-			var blsKey = ""
-			if (blsOrNetwork.length > 6){
-				bribeType = "validator";
-				blsKey = blsOrNetwork;
-			}else{
-				bribeType = "lsdn";
-
-				var blsKeys = getBLSKeysByLSDNTickerAndNodeRunnerAddress(blsOrNetwork, signer.getAddress());
-				// TO-DO: Get first eligible BLS key for Signer
-				for (var x=0; x<blsKeys.data.smartWallets.nodeRunner.validators.length; x++){
-					var claimable = claimableLSDN(blsKeys.data.smartWallets.nodeRunner.validators[x]);
-					if (claimable > 0){
-						blsKey = blsKeys.data.smartWallets.nodeRunner.validators[x];
-					}
-				}
-			}
-			
-			const encodedData = ethers.utils.arrayify(blsKey);
-			
 			(async () => {
+				var goerli_http = new ethers.providers.JsonRpcProvider(GOERLI_INFURA);
+				var blsOrNetwork = this.id.split('claim')[1];
+	
+				const contractABI = [
+					{
+						"inputs": [
+							{
+								"internalType": "bytes",
+								"name": "validatorBLSKey",
+								"type": "bytes"
+							}
+						],
+						"name": "claim",
+						"outputs": [],
+						"stateMutability": "nonpayable",
+						"type": "function"
+					}];
+
+				var bribeType = "";
+	
 				const chainId = await getConnectedNetworkId();
-				const BribeVaultAddress = getNodeRunnerBribeVaultAddress(chainId);
-				const contract = new ethers.Contract(BribeVaultAddress, contractABI, signer);
+				var BribeVaultAddress; 
+				var blsKey = ""
+				if (blsOrNetwork.length > 6){
+					bribeType = "validator";
+					blsKey = blsOrNetwork;
+					BribeVaultAddress = getNodeRunnerBribeVaultAddress(chainId);
+				}else{
+					bribeType = "lsdn";
+					blsKey = await getFirstClaimableLSDNValidatorForSigner(blsOrNetwork, signer);
+					BribeVaultAddress = getLSDNBribeVaultAddress(chainId);
+				}
 				
+				const encodedData = ethers.utils.arrayify(blsKey);
+				const contract = new ethers.Contract(BribeVaultAddress, contractABI, signer);
+
 				const gasPrice = provider.getGasPrice().then(function(d){
 					console.log("Gas gas price: " + d.toString());
 					//const gasLimit = contract.estimateGas.claim(encodedData).then(function(g){
@@ -931,7 +1168,9 @@ async function addBribeToList(bribeToken, bribeAmountBsn, bribeRatio, validatorB
 }
 
 async function checkBribes(){
+	console.log("eth_requestAccounts...");
 	await provider.send("eth_requestAccounts", []);
+	console.log("Get Signer...");
 	const signer = provider.getSigner();
 	
 	const contractABI = [
@@ -1066,9 +1305,24 @@ async function checkBribes(){
 				"type": "uint256"
 			},
 			{
-				"internalType": "uint256",
-				"name": "expiration",
-				"type": "uint256"
+				"internalType": "bool",
+				"name": "activeClaims",
+				"type": "bool"
+			},
+			{
+				"internalType": "uint16",
+				"name": "activeClaimsCount",
+				"type": "uint16"
+			},
+			{
+				"internalType": "uint16",
+				"name": "maxClaims",
+				"type": "uint16"
+			},
+			{
+				"internalType": "uint16",
+				"name": "totalClaims",
+				"type": "uint16"
 			}
 		],
 		"stateMutability": "view",
@@ -1094,7 +1348,9 @@ async function checkBribes(){
 		"type": "function"
 	}
 	];
+	console.log("Get chain id...");
 	const chainId = await getConnectedNetworkId();
+	console.log("Get contracts...");
 	const BribeVaultAddress = getNodeRunnerBribeVaultAddress(chainId);
 	const BribeVaultContract = new ethers.Contract(BribeVaultAddress, contractABI, signer);
 	
@@ -1125,7 +1381,7 @@ async function checkBribes(){
 			//}else{
 			//	bribes[validator] = {'bribeToken':bribe[1],'bribeAmount':bribe[2], 'bribeRatio':bribe[3], 'expiration': bribe[4], 'claimed': false, 'bls':validator}
 			//}
-			bribes[validator] = {'bribeToken':bribe[1],'bribeAmount':bribe[2], 'bribeRatio':bribe[3], 'expiration': bribe[4], 'claimed': hasClaimedReward, 'blsOrNetwork':validator, 'bribeType': "nodeRunner"}
+			bribes[validator] = {'bribeToken':bribe[1],'bribeAmount':bribe[2], 'bribeRatio':bribe[3], 'expiration': bribe[4], 'claimed': hasClaimedReward, 'blsOrNetwork':validator, 'bribeType': "nodeRunner", "maxClaims":0, "totalClaims":0, "activeClaims":0}
 		}catch(e){
 			console.log("No bribes for " + validator);
 			//console.log(e);
@@ -1134,13 +1390,18 @@ async function checkBribes(){
 
 	console.log("Processing LSDN bribes...");
 	for(n = 0; n<lsdnBribeIndex; n++){
+		console.log("Processing LSDN bribes " + n.toString());
 		const lsdNetworkName = await LSDNBribeVaultContract.lsdNetworkNames(n);
 		
+		console.log("Processing LSDN bribe for network: " + lsdNetworkName);
 		try{
+			console.log("Getting LSDN bribe deposit for network: " + lsdNetworkName);
 			const bribe = await LSDNBribeVaultContract.deposits(lsdNetworkName);
 			const signerAddr = await signer.getAddress();
 			
 			if(bribe[0] == 0 && bribe[1] == 0 && bribe[2] == 0){
+				
+				console.log("Skipping empty LSDN bribe");
 				continue;
 			}
 			
@@ -1148,15 +1409,26 @@ async function checkBribes(){
 			//		  Or loop through each validator in the network and compare Node Runner to Signer
 			// 			USE getNodeRunnersByNetwork()
 			
+			console.log("Getting all node runners for network: " + lsdNetworkName);
 			var nodeRunners = await getNodeRunnersByNetwork(lsdNetworkName);
 
+			console.log("Node runners for network: " + lsdNetworkName);
 			console.log(nodeRunners);
 
-			var hasAllClaimed = true
-			for(nodeRunnerIdx = 0; nodeRunnerIdx < nodeRunners.data.length; nodeRunnerIdx ++) {
-				if (nodeRunners.data[nodeRunnerIdx].id == signerAddr) {
-					for(nrValidatorIdx = 0; nrValidatorIdx < nodeRunners.data[nodeRunnerIdx].validators.count; nrValidatorIdx ++){
-						var hasClaimedReward = await hasClaimedNodeRunner(lsdNetworkName, nodeRunners.data[nodeRunnerIdx].validators[nrValidatorIdx].id);
+			// hasAllClaimed = true by default if the Bribed Network has validators.
+			// We'll set hasAllClaimed to false if we detect any that haven't claimed
+			var hasAllClaimed = nodeRunners.data.smartWallets.length > 0;
+			for(nodeRunnerIdx = 0; nodeRunnerIdx < nodeRunners.data.smartWallets.length; nodeRunnerIdx ++) {
+				
+				console.log("Iterating node runner for network: " + lsdNetworkName);
+				console.log("NodeRunner data: ")
+				console.log(nodeRunners.data.smartWallets[nodeRunnerIdx].nodeRunner);
+				if (nodeRunners.data.smartWallets[nodeRunnerIdx].nodeRunner.id.toUpperCase() == signerAddr.toUpperCase()) {
+					for(nrValidatorIdx = 0; nrValidatorIdx < nodeRunners.data.smartWallets[nodeRunnerIdx].nodeRunner.validators.length; nrValidatorIdx ++){
+						console.log("Iterating vaidator for node runner: " + nodeRunners.data.smartWallets[nodeRunnerIdx].nodeRunner.id);
+						console.log("Validator data: ")
+						console.log(nodeRunners.data.smartWallets[nodeRunnerIdx].nodeRunner.validators[nrValidatorIdx])
+						var hasClaimedReward = await hasClaimedNodeRunner(lsdNetworkName, nodeRunners.data.smartWallets[nodeRunnerIdx].nodeRunner.validators[nrValidatorIdx].id);
 						if (!hasClaimedReward) {
 							hasAllClaimed = false // if even 1 validator the signer runs is claimable, don't show 'Claimed'
 						}
@@ -1170,10 +1442,10 @@ async function checkBribes(){
 			//}else{
 			//	bribes[validator] = {'bribeToken':bribe[1],'bribeAmount':bribe[2], 'bribeRatio':bribe[3], 'expiration': bribe[4], 'claimed': false, 'bls':validator}
 			//}
-			bribes[lsdNetworkName] = {'bribeToken':bribe[1],'bribeAmount':bribe[2], 'bribeRatio':bribe[3], 'expiration': bribe[4], 'claimed': hasAllClaimed, 'blsOrNetwork':lsdNetworkName, 'bribeType': "lsdNetwork"}
+			bribes[lsdNetworkName] = {'bribeToken':bribe[1],'bribeAmount':bribe[2], 'bribeRatio':bribe[3], 'expiration': 0, 'claimed': hasAllClaimed, 'blsOrNetwork':lsdNetworkName, 'bribeType': "lsdNetwork", "maxClaims":bribe[6], "totalClaims":bribe[7], "activeClaims":bribe[5]}
 		}catch(e){
 			console.log("No bribes for " + lsdNetworkName);
-			//console.log(e);
+			console.log(e);
 		}
 	}
 
@@ -1186,7 +1458,7 @@ async function checkBribes(){
 	Object.keys(bribes).forEach((k) => {
 		const bribe = bribes[k];
 		(async () => {
-			await addBribeToList(bribe.bribeToken, bribe.bribeAmount, bribe.bribeRatio, bribe.blsOrNetwork, bribe.expiration, bribe.claimed, bribe.bribeType);
+			await addBribeToList(bribe.bribeToken, bribe.bribeAmount, bribe.bribeRatio, bribe.blsOrNetwork, bribe.expiration, bribe.claimed, bribe.bribeType, bribe.maxClaims, bribe.totalClaims, bribe.activeClaims);
 		})();
 	});
 	
@@ -1292,6 +1564,39 @@ async function approveTokenSpend(token, amount, bribeType){
 	}
 }
 
+async function initiateClaimLSDN(blsKeyVal){
+	await provider.send("eth_requestAccounts", []);
+	const signer = provider.getSigner();
+	
+	abi = [{
+		"inputs": [
+			{
+				"internalType": "bytes",
+				"name": "validatorBLSKey",
+				"type": "bytes"
+			}
+		],
+		"name": "initClaim",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	}];
+	
+	const chainId = await getConnectedNetworkId();
+	const BribeVaultAddress = getLSDNBribeVaultAddress(chainId);
+	const BribeVaultContract = new ethers.Contract(BribeVaultAddress, abi, signer);
+	var initClaimTx = await BribeVaultContract.initClaim(blsKeyVal);
+	console.log(initClaimTx);
+	
+	try {
+	  const claimReceipt = await initClaimTx.wait();
+	  console.log("Transaction successful:", claimReceipt);
+	  M.toast({html: 'Registration succeeded!', displayLength:10000, classes: 'rounded green', });
+	} catch (error) {
+	  console.log("Transaction failed:", error);
+	  M.toast({html: 'Registration failed', displayLength:10000, classes: 'rounded red', });
+	}
+}
 
 async function withdrawRemainingBribe(blsKeyVal){
 	await provider.send("eth_requestAccounts", []);
@@ -1456,8 +1761,10 @@ async function depositBribe(bribeToken, bribeAmountVal, blsKeyValOrValidatorRati
 				  var liquidStakingManager = await getLiquidStakingManagerByLSDNTicker(lsdnTicker);
 				  console.log(liquidStakingManager);
 				  // TO-DO: Fix other instances of this
-				  console.log("LSM for LSDN: " + lsdnTicker + ": " + liquidStakingManager.data.liquidStakingNetworks[0].liquidStakingManager);
-				  depositTx = await BribeVaultContract.depositBribe(bribeToken, ethers.BigNumber.from(bribeAmountVal.toString()), ethers.BigNumber.from(blsKeyValOrValidatorRatio.toString()), lsdnTicker, liquidStakingManager.data.liquidStakingNetworks[0].liquidStakingManager, {gasLimit: d});
+			      if(liquidStakingManager == undefined || liquidStakingManager.data.liquidStakingNetworks.length == 0){
+					M.toast({html: 'Invalid LSD Network', displayLength:10000, classes: 'rounded red', });
+					throw "LiquidStakingManager not found for LSD Network";
+				  }
 				}
 				console.log(depositTx);
 				const txReceipt = await depositTx.wait();
@@ -1628,14 +1935,14 @@ document.addEventListener('DOMContentLoaded', function() {
 				if(withdrawalType == "validator"){
 					var blsKey = document.getElementById('withdrawBLSorNetwork');
 					var blsKeyVal = blsKey.value;
-					withdrawRemainingBribe(blsKeyVal);
+					await withdrawRemainingBribe(blsKeyVal);
 				}else{
 					var networkTicker = document.getElementById('withdrawBLSorNetwork');
 					var lsdnVal = networkTicker.value;
 					var liquidStakingManager = await getLiquidStakingManagerByLSDNTicker(lsdnVal);
 					
 					console.log("LSM for LSDN: " + lsdnVal + ": " + liquidStakingManager.data.liquidStakingNetworks.liquidStakingManager);
-					withdrawRemainingBribe_lsm(liquidStakingManager.data.liquidStakingNetworks.liquidStakingManager);
+					await withdrawRemainingBribe_lsm(liquidStakingManager.data.liquidStakingNetworks.liquidStakingManager);
 				}
 			})();
 		});
@@ -1790,7 +2097,7 @@ network.addEventListener('change', async(e) => {
 			currentNetwork = selectedNetwork; // only set this once the chain is switched
 			network.value = currentNetwork 
 			M.FormSelect.init(network, undefined);
-
+			console.log("Checking bribes");
 			await checkBribes();
 			await updateTokenSelectAddresses(selectedNetwork);
 			
