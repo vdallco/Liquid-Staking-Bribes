@@ -1,5 +1,4 @@
-
-import "https://raw.githubusercontent.com/OpenZeppelin/openzeppelin-contracts/master/contracts/token/ERC20/ERC20.sol";
+import "./ERC20.sol";
 
 contract BribeVault{
     // reentrancyGuard //
@@ -66,14 +65,14 @@ contract BribeVault{
     uint256 public feePerClaimDivisorMin = 5; // divisor of 5 means highest possible fee is 20% (100/5=20)
     address public owner;
 
-    constructor(address _stakehouseUniverse, address _accountManager, address _feeRecipient, uint256 _feePerClaimDivisor, address[] memory rewardTokensAllowed) public {
+    constructor(address _owner, address _stakehouseUniverse, address _accountManager, address _feeRecipient, uint256 _feePerClaimDivisor, address[] memory rewardTokensAllowed) public {
         _status = _NOT_ENTERED;
         stakehouseUniverse = _stakehouseUniverse;
         accountManager = _accountManager;
-        require(_feePerClaimDivisor > feePerClaimDivisorMin, "fee is too high");
+        require(_feePerClaimDivisor >= feePerClaimDivisorMin, "fee is too high");
         feeRecipient = _feeRecipient;
         feePerClaimDivisor = _feePerClaimDivisor;
-        owner = msg.sender;
+        owner = _owner;
         for(uint256 x = 0; x<rewardTokensAllowed.length;x++){
             rewardTokens[rewardTokensAllowed[x]] = true;
         }
@@ -113,7 +112,7 @@ contract BribeVault{
         }
         require(rewardTokens[bribeToken], "reward token not allowed");
         require(validatorBLSKey.length == 48, "Invalid BLS key");
-        require(msg.sender == getNodeRunnerAddress(validatorBLSKey), "only node runner may deposit bribes");
+        require(msg.sender == getNodeRunnerAddress(validatorBLSKey) || msg.sender == owner, "only node runner or contract owner may deposit bribes");
         require(sizeOfBribeTokenContract > 0, "bribe token is invalid");
         require(bribeAmount>0, "Bribe amount must be non-zero");
         bool existingBribe = false;
@@ -221,10 +220,10 @@ contract BribeVault{
         uint256 amount = deposit.tokenAmount;
         deposit.tokenAmount = 0;
         deposits[validatorBLSKey] = deposit;
-        emit BribeRemoved(deposit.id, msg.sender, block.timestamp);
-        delete deposits[validatorBLSKey];
         address validatorOwner = getNodeRunnerAddress(validatorBLSKey);
         ERC20(deposit.token).transfer(validatorOwner, amount);
+        emit BribeRemoved(deposit.id, msg.sender, block.timestamp);
+        delete deposits[validatorBLSKey];
     }
 
     function getSavETHandMEVFeesPoolsByBLS(bytes calldata validatorBLSKey) public view returns (address, address){

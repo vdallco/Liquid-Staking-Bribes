@@ -70,6 +70,8 @@
 						<b>Node operators</b> who join incentivized LSD Networks <b>earn ERC-20 token rewards.</b>
 					</li>
 					</ul>
+
+				<center><span class="chip blue lighten-4 black-text"><b>A 20% fee on all bribe claims will support the Blockswap DAO Liquidity Council</b></span></center>
 			</div>
 		</div>
 		
@@ -78,17 +80,20 @@
 				<p>
 					<div class="row">
 						<i class="material-icons small col s1" style="margin-right:4px;position: relative;top:15px;">report</i>
-					    <h5 class="col s4">Warning</h5>
+					    <h5 class="col s4">Warnings</h5>
 					</div>
 					<ul class="collection" style="border:none;">
 						<li class="collection-item white-text text-darken-2" style="border-bottom:none;background-color:rgba(28,28,30,1);">
-							Use the
+							<i class="material-icons xs col s1 hide-on-small-and-down" style="margin-right:4px;position: relative;top:5px;padding-top:0px;padding-bottom:0px">bubble_chart</i> Use the
 							<b>
 								<a href="https://api.studio.thegraph.com/query/41256/lsd-mainnet/v0.0.2/graphql?query=query+MyQuery+%7B%0A++lsdvalidators+%7B%0A++++smartWallet+%7B%0A++++++liquidStakingNetwork+%7B%0A++++++++savETHPool%0A++++++++feesAndMevPool%0A++++++%7D%0A++++%7D%0A++++id%0A++%7D%0A%7D" style="color:#00ED76;">lsd-mainnet graph</a>
 							</b> to confirm you have the correct validator BLS key or LSD Network ticker.
 						</li>
 						<li class="collection-item white-text text-darken-2" style="border-bottom:none;background-color:rgba(28,28,30,1);">
-							Beware of unverified reward tokens. Tokens with a green checkmark are verified to be legitimate. Always verify the reward token by checking the Etherscan link.
+							<i class="material-icons xs col s1 hide-on-small-and-down" style="margin-right:4px;position: relative;top:5px;padding-top:0px;padding-bottom:0px">gpp_maybe</i> <b>Beware of unverified reward tokens.</b> Tokens with a green checkmark are verified to be legitimate. Always verify the reward token by checking the Etherscan link.
+						</li>
+						<li class="collection-item white-text text-darken-2" style="border-bottom:none;background-color:rgba(28,28,30,1);">
+							<i class="material-icons xs col s1 hide-on-small-and-down" style="margin-right:4px;position: relative;top:5px;padding-top:0px;padding-bottom:0px">av_timer</i>  <b>You may only claim once per bribe.</b> Since LSD Network bribe rewards are vested linearly over a year, you could be forfeiting a large portion of your reward tokens if you claim early. Wait for your year-long vesting schedule to end if you wish to claim 100% of your allotted rewards.
 						</li>
 					</ul>
 					
@@ -201,8 +206,7 @@
     </div> 
     </div>
 
-    <!-- :) -->
-	  <div id="confirmWithdrawal" class="modal">
+	<div id="confirmWithdrawal" class="modal">
         <div class="modal-content">
             <h4>Confirm</h4>
             <p>Are you sure you want to withdraw <span id="withdrawBsnAmount"></span> <span id="withdrawTokenSymbol"></span> to the owner of <span id="withdrawType"></span> <span id="withdrawBLSorNetwork"></span>: <span id="withdrawAddr"></span>?</p>
@@ -210,6 +214,19 @@
         <div class="modal-footer">
             <a href="#!" class="modal-close waves-effect waves-red btn-flat">No</a>
             <a href="#" class="waves-effect waves-green btn-flat" id="withdrawConfirmBtn">Yes</a>
+       </div>
+    </div>
+
+	<div id="confirmClaim" class="modal">
+        <div class="modal-content">
+            <h4>Warning</h4>
+			<p><b>You may only claim once per bribe! Remaining locked tokens will be forfeited to the LSD Network owner. We strongly encourage you to *not* claim until your year-long vesting schedule is complete.</b></p><br><br>
+            <p>Are you sure you want to claim <span id="claimBSNAmt"></span> <span id="claimBSNSymbol"></span> from the <span id="claimBSNNetwork"></span> network bribe?</p>
+			<span id="claimBSNBLS" style="display:none;"></span>
+        </div>
+        <div class="modal-footer">
+            <a href="#!" class="modal-close waves-effect waves-red btn-flat">Cancel</a>
+            <a href="#" class="waves-effect waves-green btn-flat" id="claimConfirmBtn">Claim</a>
        </div>
     </div>
 	

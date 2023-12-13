@@ -42,8 +42,8 @@ The bribe vaults may be deployed via Remix IDE.
 
 | Contract    | Address     |
 | ----------- | ----------- |
-| NodeRunnerBribeVault        | 0x093e0d68c96aFD4e6DebC3cF802113E653A879cc  |
-| LSDNetworkownerBribeVault   |   |
+| NodeRunnerBribeVault        | 0x49af554ca2726828be938d2ea3229b1c47f471bf  |
+| LSDNetworkownerBribeVault   | 0xd3dfee51c18d09cd2efd1481295df85758280144  |
 
 ## Goerli
 
@@ -52,4 +52,4 @@ The bribe vaults may be deployed via Remix IDE.
 | Contract    | Address     |
 | ----------- | ----------- |
 | NodeRunnerBribeVault        | 0xd7BB3Ee6Cbec711c7D11864eF0A89A041ed65D69  |
-| LSDNetworkownerBribeVault   | 0x221A671dDD2Eb1101017F9795524827b8E874A13  |
+| LSDNetworkownerBribeVault   | 0x863302E8964029DF39c037C49308E5beEaC1F7c7  |

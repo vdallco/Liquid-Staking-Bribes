@@ -1,13 +1,35 @@
 
-import "https://raw.githubusercontent.com/OpenZeppelin/openzeppelin-contracts/master/contracts/token/ERC20/ERC20.sol";
+import "./ERC20.sol";
 
 contract NodeRunnerBribeVault{
+    // reentrancyGuard //
+    uint256 private constant _NOT_ENTERED = 1;
+    uint256 private constant _ENTERED = 2;
+
+    uint256 private _status;
+
+    modifier nonReentrant() {
+        require(_status != _ENTERED, "ReentrancyGuard: reentrant call");
+        _status = _ENTERED;
+        _;
+        _status = _NOT_ENTERED;
+    }
+    ///////////////////////
+
     struct TokenDeposit{
         uint256 id;
         address token;
         uint256 tokenAmount;
         uint256 tokenToValidatorRatio;
-        uint256 expiration;
+        bool activeClaims;
+        uint16 activeClaimsCount;
+        uint16 maxClaims;
+        uint16 totalClaims;
+    }
+
+    struct DepositClaim{
+        uint256[] claimed;
+        mapping(uint256 => uint256) initiatedClaims; // deposit.id => timestamp
     }
 
     event BribeAdded(uint256 indexed bribeId, address indexed sender, uint256 epoch);
@@ -23,12 +45,14 @@ contract NodeRunnerBribeVault{
     string[] public lsdNetworkNames;
     uint256 public lsdNetworkIndex = 0;
     uint256 public depositIndex = 0;
-    mapping(bytes => uint256[]) public claimedDeposits; // Maps Validator BLS to array of deposit.id
+    mapping(bytes => DepositClaim) internal claimedDeposits; //uint256[]) public claimedDeposits; // Maps Validator BLS to array of deposit.id
 
     mapping(address => bool) public rewardTokens;
     // ["0x534D1F5E617e0f72A6b06a04Aa599839AF776A5e","0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48","0x3d1e5cf16077f349e999d6b21a4f646e83cd90c5","0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"]
+    // ["0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6","0x359599d4032D6540F3bE62E459861f742Ceb851f","0x506C2B850D519065a4005b04b9ceed946A64CB6F","0x14Ab8194a1cB89D941cc5159873aFDaC3C45094d","0x15fB74F4d828C85a1b71Ac1A83f31E1D2B8Beb73"] // Testnet
     //address public stakehouseUniverse = 0xC38ee0eCc213293757dC5a30Cf253D3f40726E4c; // TO-DO: Replace with mainnet. This is Goerli Stakehouse Universe 
     // Mainnet stakehouse universe: 0xC6306C52ea0405D3630249f202751aE3043056bd
+
     address public stakehouseUniverse;
     uint256 public bribeLength = 31536000; // 365 days
 
@@ -42,12 +66,12 @@ contract NodeRunnerBribeVault{
         rewardTokens[token] = allowed;
     }
 
-    constructor(address _stakehouseUniverse, address _feeRecipient, uint256 _feePerClaimDivisor, address[] memory rewardTokensAllowed) public {
+    constructor(address _owner, address _stakehouseUniverse, address _feeRecipient, uint256 _feePerClaimDivisor, address[] memory rewardTokensAllowed) public {
         stakehouseUniverse = _stakehouseUniverse;
-        require(_feePerClaimDivisor > feePerClaimDivisorMin, "fee is too high");
+        require(_feePerClaimDivisor >= feePerClaimDivisorMin, "fee is too high");
         feeRecipient = _feeRecipient;
         feePerClaimDivisor = _feePerClaimDivisor;
-        owner = msg.sender;
+        owner = _owner;
         for(uint256 x = 0; x<rewardTokensAllowed.length;x++){
             rewardTokens[rewardTokensAllowed[x]] = true;
         }
@@ -83,7 +107,7 @@ contract NodeRunnerBribeVault{
         require(msgSender == lsdnOwner, "only lsd owner/dao may deposit bribes");
     }
 
-    function depositBribe(address bribeToken, uint256 bribeAmount, uint256 tokenToValidatorRatio, string calldata lsdNetwork, address liquidStakingManager) public {
+    function depositBribe(address bribeToken, uint256 bribeAmount, uint256 tokenToValidatorRatio, string calldata lsdNetwork, address liquidStakingManager, uint16 maxClaims) public nonReentrant {
         _depositInit(liquidStakingManager, lsdNetwork, msg.sender);
         require(rewardTokens[bribeToken], "reward token not allowed");
         uint256 sizeOfBribeTokenContract;
@@ -111,16 +135,19 @@ contract NodeRunnerBribeVault{
         if(existingBribe) // existing validator bribe. Add tokens to bribe total,
         {
             require(deposit.token == bribeToken, "invalid token for bribe"); 
+            require(tokenToValidatorRatio >= deposit.tokenToValidatorRatio, "tokenToValidatorRatio must be >= existing ratio"); 
+            require(maxClaims >= deposit.maxClaims, "maxClaims must be >= existing maximum"); 
             ERC20(deposit.token).transferFrom(msg.sender, address(this), bribeAmount);
             deposit.tokenAmount = deposit.tokenAmount + bribeAmount;
-            deposit.tokenToValidatorRatio = tokenToValidatorRatio; // TO-DO: Only apply if new ratio is greater than existing
+            deposit.tokenToValidatorRatio = tokenToValidatorRatio; 
+            deposit.maxClaims = maxClaims;
 
             deposits[lsdNetwork] = deposit;
             emit BribeToppedUp(deposit.id, msg.sender, block.timestamp);
         }else{ // new Validator bribe
             ERC20(bribeToken).transferFrom(msg.sender, address(this), bribeAmount);
             uint256 expirationSeconds = block.timestamp + bribeLength;
-            deposits[lsdNetwork] = TokenDeposit(depositIndex, bribeToken, bribeAmount, tokenToValidatorRatio, expirationSeconds);
+            deposits[lsdNetwork] = TokenDeposit(depositIndex, bribeToken, bribeAmount, tokenToValidatorRatio, false, 0, maxClaims, 0);
             if(!existingKey){
                 lsdNetworkNames.push(lsdNetwork);
                 lsdNetworkIndex = lsdNetworkIndex + 1;
@@ -142,20 +169,20 @@ contract NodeRunnerBribeVault{
         return abi.decode(nodeRunnerBytes, (address));
     }
 
-    function withdrawRemainingBribe(address liquidStakingManager) public {
+    function withdrawRemainingBribe(address liquidStakingManager) public nonReentrant {
         (, bytes memory stakehouseTicker) = liquidStakingManager.staticcall(abi.encodeWithSignature("stakehouseTicker()"));
         (, bytes memory dao) = liquidStakingManager.staticcall(abi.encodeWithSignature("dao()"));
         string memory lsdnTicker = abi.decode(stakehouseTicker, (string));
         TokenDeposit storage deposit = deposits[lsdnTicker];
-        require(deposit.expiration < block.timestamp, "bribe not expired");
+        require(deposit.activeClaims == false, "bribe has active claims initiated");
         require(deposit.tokenAmount > 0, "bribe is empty");
         uint256 amount = deposit.tokenAmount;
         deposit.tokenAmount = 0;
         deposits[lsdnTicker] = deposit;
         emit BribeRemoved(deposit.id, msg.sender, block.timestamp);
-        delete deposits[lsdnTicker];
         address lsdnOwner = abi.decode(dao, (address));
         ERC20(deposit.token).transfer(lsdnOwner, amount);
+        delete deposits[lsdnTicker];
     }
 
     function getSavETHandMEVFeesPoolsByBLS(bytes calldata validatorBLSKey) public view returns (address, address){
@@ -204,33 +231,43 @@ contract NodeRunnerBribeVault{
         return abi.decode(stakehouseTickerBytes, (string));
     }
 
-    function claimable(bytes calldata validatorBLSKey) public view returns(uint256) {
-        
-        //uint256 ethAmount = ethDepositsByBLSKeyAndAddress(validatorBLSKey, msg.sender);
-
+    function claimable(bytes calldata validatorBLSKey) public view returns (uint256) {
         string memory validatorNetwork = getValidatorNetwork(validatorBLSKey);
         TokenDeposit storage deposit = deposits[validatorNetwork];
+        DepositClaim storage claims = claimedDeposits[validatorBLSKey];
         address nodeRunner = getNodeRunnerAddress(validatorBLSKey);
         require(msg.sender == nodeRunner, "only node runner may claim");
+        uint256 bribeStart = claims.initiatedClaims[deposit.id];
+        require(bribeStart > 0, "validator hasn't initiated claim");
 
+        //return deposit.tokenToValidatorRatio;
+        if (block.timestamp > (bribeStart + bribeLength)) { // 365 days from claim initiation
+             return deposit.tokenToValidatorRatio;
+        } else {
+             uint256 secondsSinceBribeStarted = block.timestamp - bribeStart;
+             uint256 rewardsPerSecond = deposit.tokenToValidatorRatio / bribeLength;
+             uint256 scaledRewardsAmount = rewardsPerSecond * secondsSinceBribeStarted;
+             return scaledRewardsAmount;
+        }
+    }
+
+    function totalClaimable(bytes calldata validatorBLSKey) public view returns (uint256){
+        string memory validatorNetwork = getValidatorNetwork(validatorBLSKey);
+        TokenDeposit storage deposit = deposits[validatorNetwork];
+        DepositClaim storage claims = claimedDeposits[validatorBLSKey];
+        address nodeRunner = getNodeRunnerAddress(validatorBLSKey);
+        require(msg.sender == nodeRunner, "only node runner may claim");
+        uint256 bribeStart = claims.initiatedClaims[deposit.id];
+        require(bribeStart > 0, "validator has not initiated claim");
         return deposit.tokenToValidatorRatio;
-        // if (block.timestamp >= deposit.expiration) {
-        //     return ((deposit.tokenToEthRatio * ethAmount)/(10**18),(deposit.tokenToEthRatio * ethAmount)/(10**18));
-        // } else {
-        //     uint256 bribeStart = deposit.expiration - bribeLength;
-        //     uint256 secondsSinceBribeStarted = (block.timestamp - bribeStart);
-        //     uint256 rewardsPerSecond = ethAmount / bribeLength;
-        //     uint256 scaledEthAmount = rewardsPerSecond * secondsSinceBribeStarted;
-        //     return ((deposit.tokenToEthRatio * scaledEthAmount)/(10**18), (deposit.tokenToEthRatio * ethAmount)/(10**18));
-        // }
     }
 
     function hasClaimed(string calldata lsdNetwork, bytes calldata validatorBLS) public view returns (bool){
-        uint256[] storage claims = claimedDeposits[validatorBLS];
+        DepositClaim storage claims = claimedDeposits[validatorBLS];
         TokenDeposit storage deposit = deposits[lsdNetwork];
 
-        for(uint256 x = 0; x < claims.length; x++){
-            if(claims[x] == deposit.id){
+        for(uint256 x = 0; x < claims.claimed.length; x++){
+            if(claims.claimed[x] == deposit.id){
                 return true;
             }
         }
@@ -238,14 +275,31 @@ contract NodeRunnerBribeVault{
         return false;
     }
 
-    function claim(bytes calldata validatorBLSKey) public {
+    function initClaim(bytes calldata validatorBLSKey) public nonReentrant {
+        uint256 currentTimestamp = block.timestamp;
+        string memory validatorNetwork = getValidatorNetwork(validatorBLSKey);
+        DepositClaim storage claims = claimedDeposits[validatorBLSKey];
+        TokenDeposit storage deposit = deposits[validatorNetwork];
+        require(claims.initiatedClaims[deposit.id] == 0, "already initiated claim");
+        require(deposit.totalClaims < deposit.maxClaims, "maximum number of claims reached");
+        for (uint256 i = 0; i < claims.claimed.length; i++) {
+            require(claims.claimed[i] != deposit.id, "already claimed");
+        }
+        deposit.activeClaims = true;
+        deposit.activeClaimsCount = deposit.activeClaimsCount + 1;
+        deposit.totalClaims = deposit.totalClaims + 1;
+        deposits[validatorNetwork] = deposit;      
+        claimedDeposits[validatorBLSKey].initiatedClaims[deposit.id] = currentTimestamp;
+    }
+
+    function claim(bytes calldata validatorBLSKey) public nonReentrant {
         uint256 currentTimestamp = block.timestamp;
         string memory validatorNetwork = getValidatorNetwork(validatorBLSKey);
         // TO-DO: Refactor following lines (already in hasClaimed() which needs to remain public view for dApp
-        uint256[] storage depositsClaimed = claimedDeposits[validatorBLSKey];
-        TokenDeposit storage deposit = deposits[validatorNetwork]; 
-        for (uint256 i = 0; i < depositsClaimed.length; i++) {
-            require(depositsClaimed[i] != deposit.id, "already claimed");
+        DepositClaim storage claims = claimedDeposits[validatorBLSKey];
+        TokenDeposit storage deposit = deposits[validatorNetwork];
+        for (uint256 i = 0; i < claims.claimed.length; i++) {
+            require(claims.claimed[i] != deposit.id, "already claimed");
         }
         
         uint256 amount = claimable(validatorBLSKey);
@@ -255,11 +309,15 @@ contract NodeRunnerBribeVault{
             feeAmount = amount / feePerClaimDivisor;
         }
         require(amount>0,"nothing to claim");
-        require(deposit.tokenAmount >= amount, "insufficient bribe balance");
-        require(deposit.expiration > currentTimestamp, "bribe expired"); // ExpirationDate + 28 days
+        require(deposit.tokenAmount >= amount, "insufficient bribe balance"); // tested and working
+        //require(deposit.expiration > currentTimestamp, "bribe expired"); // ExpirationDate + 28 days
+        deposit.activeClaimsCount = deposit.activeClaimsCount - 1;
+        if(deposit.activeClaimsCount == 0){
+            deposit.activeClaims = false;
+        }
         deposit.tokenAmount = deposit.tokenAmount - amount;
         deposits[validatorNetwork] = deposit;
-        claimedDeposits[validatorBLSKey].push(deposit.id);
+        claimedDeposits[validatorBLSKey].claimed.push(deposit.id);
         ERC20(deposit.token).transfer(msg.sender, amount - feeAmount);
         emit BribeClaimed(deposit.id, msg.sender, block.timestamp);
         if(feeAmount > 0){
